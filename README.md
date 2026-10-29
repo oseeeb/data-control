@@ -9,10 +9,11 @@ Application mobile (Android et iOS) qui affiche **en direct** la consommation de
 
 ## Capture en arrière-plan
 
-Une fois GO appuyé, la capture continue jusqu'à STOP, même si l'on change d'écran ou d'app.
+Une fois GO appuyé, la capture continue jusqu'à STOP (dans l'app, dans la notification, ou arrêt automatique), même si l'on change d'app, éteint l'écran ou ferme Flux.
 
-- **Android** : un service au premier plan garde Flux actif et affiche une notification « En direct » (débit, volume depuis GO) avec un bouton **STOP**. Un verrou de veille partiel permet de continuer écran éteint ; il est libéré à l'arrêt (et au plus tard après 6 h). Fermer Flux depuis les apps récentes arrête la capture.
-- **iOS** : le système ne permet pas de mesurer en continu en arrière-plan. La capture reprend au retour dans Flux ; comme les compteurs du système sont cumulés, les volumes du temps passé ailleurs restent justes.
+- **Android** : le service `CaptureService` fait lui-même la mesure (toutes les 2 s), affiche la notification « En direct » avec un bouton **STOP** et applique l'arrêt automatique. L'état de la capture (début, volumes, derniers compteurs) est sauvegardé pendant la capture (`CaptureState.kt`) puis effacé à l'arrêt. Si le système ferme Flux pour économiser la batterie, il relance le service ; sinon la capture reprend à la prochaine ouverture. Comme les compteurs du système sont cumulés, le temps passé sans lecture est rattrapé : les volumes restent justes (sauf après un redémarrage du téléphone). Les captures terminées sans l'app ouverte arrivent dans l'historique à l'ouverture suivante.
+- **Économie de batterie** : certains fabricants (Samsung, Xiaomi, Huawei, Oppo…) coupent les apps en arrière-plan au bout de quelques minutes. Pendant une capture, Flux affiche un encart qui ouvre le réglage pour choisir « Ne pas optimiser » / « Sans restriction ».
+- **iOS** : le système ne permet pas de mesurer en continu en arrière-plan. Le point de départ de la capture est sauvegardé ; au retour dans Flux (même après une fermeture), la capture reprend et les volumes sont recalculés à partir des compteurs du système. Limites : un redémarrage du téléphone clôt la capture sur le dernier état connu, et les compteurs 32 bits d'iOS ne sont rattrapés que pour un seul bouclage (4 Go) pendant l'absence.
 
 ## Écrans
 

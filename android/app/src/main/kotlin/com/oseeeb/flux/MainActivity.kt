@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
 import android.provider.Settings
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -16,7 +17,7 @@ class MainActivity : FlutterActivity() {
         super.configureFlutterEngine(flutterEngine)
         val reader = TrafficReader(applicationContext)
         val channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.oseeeb.flux/traffic")
-        CaptureService.onStopRequested = { channel.invokeMethod("stopRequested", null) }
+        CaptureService.onStopped = { runOnUiThread { channel.invokeMethod("captureStopped", null) } }
         channel.setMethodCallHandler { call, result ->
             when (call.method) {
                 "snapshot" -> try {
@@ -24,17 +25,33 @@ class MainActivity : FlutterActivity() {
                 } catch (e: Exception) {
                     result.error("read_failed", e.message, null)
                 }
-                "captureStarted" -> {
+                "captureStart" -> {
                     requestNotificationPermission()
-                    CaptureService.start(applicationContext, call.argument("title") ?: "", call.argument("text") ?: "")
+                    CaptureState.begin(
+                        applicationContext,
+                        reader,
+                        call.argument<String>("unit") ?: "auto",
+                        (call.argument<Number>("autoStopSec") ?: 0).toLong(),
+                    )
+                    CaptureService.start(applicationContext)
                     result.success(null)
                 }
-                "captureUpdate" -> {
-                    CaptureService.update(applicationContext, call.argument("title") ?: "", call.argument("text") ?: "")
-                    result.success(null)
+                "captureState" -> {
+                    val state = CaptureState.current(applicationContext)
+                    // Capture en cours mais service arrêté par le système : on le relance
+                    // (l'app est au premier plan, c'est permis).
+                    if (state != null) CaptureService.start(applicationContext)
+                    result.success(state)
                 }
-                "captureStopped" -> {
+                "captureStop" -> {
+                    val summary = CaptureState.finish(applicationContext, reader)
                     CaptureService.stop(applicationContext)
+                    result.success(summary)
+                }
+                "takeFinished" -> result.success(CaptureState.takeFinished(applicationContext))
+                "backgroundRestricted" -> result.success(isBatteryOptimized())
+                "openBatterySettings" -> {
+                    openBatterySettings()
                     result.success(null)
                 }
                 "openAppSettings" -> {
@@ -50,14 +67,8 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
-        CaptureService.onStopRequested = null
+        CaptureService.onStopped = null
         super.cleanUpFlutterEngine(flutterEngine)
-    }
-
-    override fun onDestroy() {
-        // Sans l'app, plus personne ne mesure : on retire la notification.
-        if (isFinishing) CaptureService.stop(applicationContext)
-        super.onDestroy()
     }
 
     /** Android 13+ : la notification « En direct » demande l'accord de l'utilisateur. */
@@ -65,5 +76,31 @@ class MainActivity : FlutterActivity() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
         if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) return
         requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
+    }
+
+    /** `true` si l'économie de batterie peut fermer Flux en arrière-plan. */
+    private fun isBatteryOptimized(): Boolean {
+        val power = getSystemService(PowerManager::class.java) ?: return false
+        return !power.isIgnoringBatteryOptimizations(packageName)
+    }
+
+    /**
+     * Ouvre la liste des optimisations de batterie, où l'utilisateur peut
+     * choisir « Ne pas optimiser » pour Flux. Certains fabricants ajoutent
+     * leur propre réglage ; à défaut, on ouvre la page de l'app.
+     */
+    private fun openBatterySettings() {
+        val intents = listOf(
+            Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS),
+            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null)),
+        )
+        for (intent in intents) {
+            try {
+                startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                return
+            } catch (_: android.content.ActivityNotFoundException) {
+                // Page absente sur ce téléphone : on essaie la suivante.
+            }
+        }
     }
 }

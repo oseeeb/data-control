@@ -73,6 +73,9 @@ class CaptureSession extends ChangeNotifier {
 
   bool _running = false;
   Stopwatch? _clock;
+
+  /// Temps déjà écoulé quand la capture a été reprise ([resume]).
+  Duration _elapsedOffset = Duration.zero;
   Duration? _autoStop;
   SessionSummary? _lastSummary;
 
@@ -84,7 +87,7 @@ class CaptureSession extends ChangeNotifier {
   final Map<Channel, double> _rxPeak = {};
 
   bool get running => _running;
-  Duration get elapsed => _clock?.elapsed ?? Duration.zero;
+  Duration get elapsed => _clock == null ? Duration.zero : _elapsedOffset + _clock!.elapsed;
   TrafficSnapshot? get latest => _latest;
 
   ChannelReading reading(Channel c) => _latest?[c] ?? ChannelReading.unavailable;
@@ -124,10 +127,36 @@ class CaptureSession extends ChangeNotifier {
 
   void start({Duration? autoStop}) {
     if (_running) return;
+    _begin(autoStop: autoStop, startedAt: _now(), elapsed: Duration.zero);
+    notifyListeners();
+  }
+
+  /// Reprend une capture commencée avant que l'app ne soit fermée : son
+  /// début, sa durée et ses volumes viennent de [current].
+  void resume(SessionSummary current, {Duration? autoStop}) {
+    if (_running) return;
+    _begin(autoStop: autoStop, startedAt: current.startedAt, elapsed: current.duration);
+    syncTotals(current);
+  }
+
+  /// Remplace les volumes par ceux, plus sûrs, mesurés hors de l'app.
+  void syncTotals(SessionSummary current) {
+    if (!_running) return;
+    _rxTotal
+      ..clear()
+      ..addAll(current.rxBytes);
+    _txTotal
+      ..clear()
+      ..addAll(current.txBytes);
+    notifyListeners();
+  }
+
+  void _begin({Duration? autoStop, required DateTime startedAt, required Duration elapsed}) {
     _running = true;
     _autoStop = autoStop;
+    _elapsedOffset = elapsed;
     _clock = _newStopwatch()..start();
-    _startedAt = _now();
+    _startedAt = startedAt;
     _previous = _latest;
     _lastSummary = null;
     _rates = {};
@@ -137,7 +166,6 @@ class CaptureSession extends ChangeNotifier {
     _txTotal.clear();
     _rxPeak.clear();
     _schedule(_liveInterval);
-    notifyListeners();
   }
 
   SessionSummary stop() {

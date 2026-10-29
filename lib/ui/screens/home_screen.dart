@@ -7,6 +7,7 @@ import '../../traffic/capture_session.dart';
 import '../../traffic/channel.dart';
 import '../channel_text.dart';
 import '../format.dart';
+import '../widgets/background_hint.dart';
 import '../widgets/common.dart';
 import '../widgets/go_button.dart';
 import 'channel_screen.dart';
@@ -115,6 +116,7 @@ class HomeScreen extends StatelessWidget {
                     ),
                   ),
                 ],
+                const BackgroundHint(),
                 const SizedBox(height: 16),
                 GridView(
                   shrinkWrap: true,

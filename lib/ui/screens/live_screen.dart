@@ -9,6 +9,7 @@ import '../../traffic/capture_session.dart';
 import '../../traffic/channel.dart';
 import '../channel_text.dart';
 import '../format.dart';
+import '../widgets/background_hint.dart';
 import '../widgets/common.dart';
 import '../widgets/live_chart.dart';
 import 'channel_screen.dart';
@@ -107,6 +108,7 @@ class _LiveScreenState extends State<LiveScreen> {
                           style: fluxText(12, color: p.muted, height: 1.4),
                         ),
                       ],
+                      const BackgroundHint(),
                       const SizedBox(height: 18),
                       FluxCard(
                         radius: 22,

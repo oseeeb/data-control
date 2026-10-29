@@ -43,7 +43,7 @@
             android:name=".CaptureService"
             android:exported="false"
             android:foregroundServiceType="specialUse"
-            android:stopWithTask="true">
+            android:stopWithTask="false">
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Mesure en direct du débit réseau par canal, lancée par l'utilisateur (bouton GO) et arrêtée par STOP. Aucune donnée n'est enregistrée ni envoyée."/>

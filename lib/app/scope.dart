@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import '../history/history_store.dart';
+import '../traffic/capture_host.dart';
 import '../traffic/capture_session.dart';
 import 'settings.dart';
 
@@ -12,12 +13,14 @@ class FluxScope extends InheritedWidget {
     required this.settings,
     required this.session,
     required this.history,
+    required this.host,
     required super.child,
   });
 
   final FluxSettings settings;
   final CaptureSession session;
   final HistoryStore history;
+  final CaptureHost host;
 
   static FluxScope of(BuildContext context) {
     final scope = context.dependOnInheritedWidgetOfExactType<FluxScope>();
@@ -27,5 +30,8 @@ class FluxScope extends InheritedWidget {
 
   @override
   bool updateShouldNotify(FluxScope oldWidget) =>
-      settings != oldWidget.settings || session != oldWidget.session || history != oldWidget.history;
+      settings != oldWidget.settings ||
+      session != oldWidget.session ||
+      history != oldWidget.history ||
+      host != oldWidget.host;
 }
