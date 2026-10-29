@@ -37,7 +37,15 @@ jobs:
       - run: flutter test
 
       - name: Construire l'APK
-        run: flutter build apk --release
+        run: |
+          set -o pipefail
+          if ! flutter build apk --release 2>&1 | tee build.log; then
+            # Les erreurs de compilation remontent en annotations, lisibles sans le journal complet.
+            grep -E "^e: |error:|What went wrong|Execution failed|> .*failed" build.log | head -10 | while read -r line; do
+              echo "::error::$line"
+            done
+            exit 1
+          fi
 
       - name: Vérifier qu'aucune permission Internet n'est demandée
         run: |
