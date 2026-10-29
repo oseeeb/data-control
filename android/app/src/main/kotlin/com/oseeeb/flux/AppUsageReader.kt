@@ -8,7 +8,6 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.net.ConnectivityManager
-import android.net.TrafficStats
 import android.os.Build
 import android.os.Process
 import android.util.Log
@@ -90,8 +89,8 @@ class AppUsageReader(private val context: Context) {
     /** Nom, paquet et icône d'un uid (une app, ou un groupe système). */
     private fun describe(uid: Int): Map<String, Any?> {
         val special = when (uid) {
-            TrafficStats.UID_REMOVED -> "Apps désinstallées"
-            TrafficStats.UID_TETHERING -> "Partage de connexion"
+            NetworkStats.Bucket.UID_REMOVED -> "Apps désinstallées"
+            NetworkStats.Bucket.UID_TETHERING -> "Partage de connexion"
             Process.SYSTEM_UID, 0 -> "Système Android"
             else -> null
         }
