@@ -4,6 +4,7 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import 'app/scope.dart';
 import 'app/settings.dart';
 import 'app/theme.dart';
+import 'apps/app_usage.dart';
 import 'history/history_store.dart';
 import 'traffic/capture_host.dart';
 import 'traffic/capture_session.dart';
@@ -17,12 +18,18 @@ Future<void> main() async {
   final history = await HistoryStore.load();
   final source = PlatformTrafficSource();
   runApp(
-    FluxApp(settings: settings, session: CaptureSession(source), history: history, host: platformCaptureHost(source)),
+    FluxApp(
+      settings: settings,
+      session: CaptureSession(source),
+      history: history,
+      host: platformCaptureHost(source),
+      apps: PlatformAppUsageSource(),
+    ),
   );
 }
 
 class FluxApp extends StatefulWidget {
-  const FluxApp({super.key, required this.settings, required this.session, this.history, this.host});
+  const FluxApp({super.key, required this.settings, required this.session, this.history, this.host, this.apps});
 
   final FluxSettings settings;
   final CaptureSession session;
@@ -33,6 +40,9 @@ class FluxApp extends StatefulWidget {
   /// Sans hôte fourni (tests), aucune sauvegarde de la capture.
   final CaptureHost? host;
 
+  /// Consommation par app (analyse) ; sans source fournie, celle du téléphone.
+  final AppUsageSource? apps;
+
   @override
   State<FluxApp> createState() => _FluxAppState();
 }
@@ -41,6 +51,7 @@ class _FluxAppState extends State<FluxApp> with WidgetsBindingObserver {
   final _navigator = GlobalKey<NavigatorState>();
   late final HistoryStore _history = widget.history ?? HistoryStore.inMemory();
   late final CaptureHost _host = widget.host ?? NoopCaptureHost();
+  late final AppUsageSource _apps = widget.apps ?? PlatformAppUsageSource();
 
   /// La session tournait au dernier changement (pour repérer GO et STOP).
   bool _wasRunning = false;
@@ -157,6 +168,7 @@ class _FluxAppState extends State<FluxApp> with WidgetsBindingObserver {
       session: _session,
       history: _history,
       host: _host,
+      apps: _apps,
       child: ListenableBuilder(
         listenable: widget.settings,
         builder: (context, _) => MaterialApp(

@@ -1,4 +1,5 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <!-- Savoir quels canaux sont connectés. Accordée automatiquement. -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <!-- Savoir si le Bluetooth est allumé (Android 11 et avant). -->
@@ -9,6 +10,10 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <!-- Continuer à mesurer écran éteint, pendant la capture uniquement. -->
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
+    <!-- Analyse des apps : lire la consommation par app qu'Android compte déjà.
+         Accès spécial, accordé par l'utilisateur dans les réglages. -->
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
+        tools:ignore="ProtectedPermissions"/>
     <!-- Volontairement AUCUNE permission INTERNET : Flux ne peut rien envoyer. -->
 
     <application
@@ -60,6 +65,11 @@
 
          In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
     <queries>
+        <!-- Noms et icônes des apps installées, pour l'analyse des apps. -->
+        <intent>
+            <action android:name="android.intent.action.MAIN"/>
+            <category android:name="android.intent.category.LAUNCHER"/>
+        </intent>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>

@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../apps/app_usage.dart';
 import '../history/history_store.dart';
 import '../traffic/capture_host.dart';
 import '../traffic/capture_session.dart';
@@ -14,6 +15,7 @@ class FluxScope extends InheritedWidget {
     required this.session,
     required this.history,
     required this.host,
+    required this.apps,
     required super.child,
   });
 
@@ -21,6 +23,7 @@ class FluxScope extends InheritedWidget {
   final CaptureSession session;
   final HistoryStore history;
   final CaptureHost host;
+  final AppUsageSource apps;
 
   static FluxScope of(BuildContext context) {
     final scope = context.dependOnInheritedWidgetOfExactType<FluxScope>();
@@ -33,5 +36,6 @@ class FluxScope extends InheritedWidget {
       settings != oldWidget.settings ||
       session != oldWidget.session ||
       history != oldWidget.history ||
-      host != oldWidget.host;
+      host != oldWidget.host ||
+      apps != oldWidget.apps;
 }

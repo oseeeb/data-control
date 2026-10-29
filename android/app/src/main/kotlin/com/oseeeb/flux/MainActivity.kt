@@ -16,6 +16,7 @@ class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         val reader = TrafficReader(applicationContext)
+        val apps = AppUsageReader(applicationContext)
         val channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.oseeeb.flux/traffic")
         CaptureService.onStopped = { runOnUiThread { channel.invokeMethod("captureStopped", null) } }
         channel.setMethodCallHandler { call, result ->
@@ -49,6 +50,37 @@ class MainActivity : FlutterActivity() {
                     result.success(summary)
                 }
                 "takeFinished" -> result.success(CaptureState.takeFinished(applicationContext))
+                "appUsageAccess" -> result.success(apps.hasAccess())
+                "openUsageAccessSettings" -> {
+                    openSettings(
+                        Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS, Uri.fromParts("package", packageName, null)),
+                        Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS),
+                    )
+                    result.success(null)
+                }
+                "appUsage" -> {
+                    val start = (call.argument<Number>("startMs") ?: 0).toLong()
+                    val end = (call.argument<Number>("endMs") ?: System.currentTimeMillis()).toLong()
+                    // Lecture et icônes : hors du fil de l'interface.
+                    Thread {
+                        val data = runCatching { apps.query(start, end) }
+                        runOnUiThread {
+                            data.fold(
+                                { result.success(it) },
+                                { result.error("app_usage_failed", it.message, null) },
+                            )
+                        }
+                    }.start()
+                }
+                "openAppDetails" -> {
+                    val pkg = call.argument<String>("package")
+                    if (pkg != null) {
+                        openSettings(
+                            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", pkg, null)),
+                        )
+                    }
+                    result.success(null)
+                }
                 "backgroundRestricted" -> result.success(isBatteryOptimized())
                 "openBatterySettings" -> {
                     openBatterySettings()
@@ -89,11 +121,13 @@ class MainActivity : FlutterActivity() {
      * choisir « Ne pas optimiser » pour Flux. Certains fabricants ajoutent
      * leur propre réglage ; à défaut, on ouvre la page de l'app.
      */
-    private fun openBatterySettings() {
-        val intents = listOf(
-            Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS),
-            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null)),
-        )
+    private fun openBatterySettings() = openSettings(
+        Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS),
+        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null)),
+    )
+
+    /** Ouvre la première page de réglages qui existe sur ce téléphone. */
+    private fun openSettings(vararg intents: Intent) {
         for (intent in intents) {
             try {
                 startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))

@@ -70,7 +70,7 @@ class SettingsScreen extends StatelessWidget {
                   children: [
                     _Title('Unités', sub: "Mb/s est l'unité utilisée par les opérateurs"),
                     const SizedBox(height: 10),
-                    _Segmented<RateUnit>(
+                    Segmented<RateUnit>(
                       value: settings.unit,
                       options: const {RateUnit.megabytes: 'Mo/s', RateUnit.megabits: 'Mb/s', RateUnit.auto: 'Auto'},
                       onChanged: (v) => settings.unit = v,
@@ -78,7 +78,7 @@ class SettingsScreen extends StatelessWidget {
                     const SizedBox(height: 18),
                     const _Title('Thème'),
                     const SizedBox(height: 10),
-                    _Segmented<ThemeMode>(
+                    Segmented<ThemeMode>(
                       value: settings.theme,
                       options: const {ThemeMode.dark: 'Sombre', ThemeMode.light: 'Clair', ThemeMode.system: 'Système'},
                       onChanged: (v) => settings.theme = v,
@@ -137,7 +137,7 @@ class SettingsScreen extends StatelessWidget {
                   children: [
                     const _Title('Arrêt automatique', sub: 'Évite de vider la batterie si on oublie STOP'),
                     const SizedBox(height: 10),
-                    _Segmented<Duration>(
+                    Segmented<Duration>(
                       value: settings.autoStop,
                       options: {
                         for (final d in FluxSettings.autoStopChoices)
@@ -270,53 +270,6 @@ class _Title extends StatelessWidget {
         Text(title, style: fluxText(15, weight: 700, color: p.text)),
         if (sub != null) ...[const SizedBox(height: 2), Text(sub!, style: fluxText(12, color: p.muted))],
       ],
-    );
-  }
-}
-
-/// Sélecteur à pastilles (Mo/s · Mb/s · Auto).
-class _Segmented<T> extends StatelessWidget {
-  const _Segmented({required this.value, required this.options, required this.onChanged});
-
-  final T value;
-  final Map<T, String> options;
-  final ValueChanged<T> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = context.palette;
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(color: p.ground, borderRadius: BorderRadius.circular(14)),
-      child: Row(
-        children: [
-          for (final entry in options.entries) ...[
-            if (entry.key != options.keys.first) const SizedBox(width: 4),
-            Expanded(
-              child: Semantics(
-                button: true,
-                selected: entry.key == value,
-                child: GestureDetector(
-                  onTap: () => onChanged(entry.key),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    height: 40,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: entry.key == value ? p.accent : Colors.transparent,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      entry.value,
-                      style: fluxText(13, weight: 700, color: entry.key == value ? p.onAccent : p.textSoft),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
     );
   }
 }

@@ -10,6 +10,7 @@ import '../format.dart';
 import '../widgets/background_hint.dart';
 import '../widgets/common.dart';
 import '../widgets/go_button.dart';
+import 'apps_screen.dart';
 import 'channel_screen.dart';
 import 'history_screen.dart';
 import 'live_screen.dart';
@@ -133,6 +134,37 @@ class HomeScreen extends StatelessWidget {
                     for (final c in channels)
                       _ChannelCard(c, session: s, unit: unit, share: sum > 0 ? s.rate(c).rxPerSec / sum : 0),
                   ],
+                ),
+                const SizedBox(height: 16),
+                FluxCard(
+                  radius: 18,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const AppsScreen())),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(color: p.accentWash, borderRadius: BorderRadius.circular(12)),
+                        child: Icon(Icons.query_stats_rounded, size: 20, color: p.accentText),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Apps en arrière-plan', style: fluxText(15, weight: 700, color: p.text)),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Lesquelles consomment quand vous ne les utilisez pas ?',
+                              style: fluxText(12, color: p.muted),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(Icons.chevron_right_rounded, color: p.faint),
+                    ],
+                  ),
                 ),
               ],
             );

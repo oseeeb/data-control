@@ -112,6 +112,14 @@ class PrivacyScreen extends StatelessWidget {
                           'Si vous refusez, la capture continue mais sans notification visible.',
                     ),
                     const _Permission(
+                      icon: Icons.query_stats_rounded,
+                      title: 'Données d’utilisation',
+                      status: 'Facultatif',
+                      text:
+                          'Seulement pour « Apps en arrière-plan » : lire la consommation de chaque app, qu’Android '
+                          'compte déjà. Flux lit ces chiffres sur cet écran et ne les garde pas.',
+                    ),
+                    const _Permission(
                       icon: Icons.public_off_rounded,
                       title: 'Accès à Internet',
                       status: 'Non demandé',

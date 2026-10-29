@@ -15,6 +15,14 @@ Une fois GO appuyé, la capture continue jusqu'à STOP (dans l'app, dans la noti
 - **Économie de batterie** : certains fabricants (Samsung, Xiaomi, Huawei, Oppo…) coupent les apps en arrière-plan au bout de quelques minutes. Pendant une capture, Flux affiche un encart qui ouvre le réglage pour choisir « Ne pas optimiser » / « Sans restriction ».
 - **iOS** : le système ne permet pas de mesurer en continu en arrière-plan. Le point de départ de la capture est sauvegardé ; au retour dans Flux (même après une fermeture), la capture reprend et les volumes sont recalculés à partir des compteurs du système. Limites : un redémarrage du téléphone clôt la capture sur le dernier état connu, et les compteurs 32 bits d'iOS ne sont rattrapés que pour un seul bouclage (4 Go) pendant l'absence.
 
+## Apps en arrière-plan
+
+L'écran « Apps en arrière-plan » montre quelles apps utilisent Internet quand on ne les a pas à l'écran, sur 24 h, 7 jours ou 30 jours.
+
+- **Android** : ces chiffres sont ceux qu'Android compte déjà pour chaque app (`NetworkStatsManager`), séparés entre premier plan et arrière-plan, Wi-Fi et réseau mobile. Flux les lit à l'ouverture de l'écran (`AppUsageReader.kt`) et ne les garde pas. Il faut l'accès spécial « Données d'utilisation », que l'utilisateur accorde dans les réglages ; l'écran l'explique et ouvre la bonne page. Chaque app ouvre un détail avec un bouton vers sa page de réglages, pour couper ses données en arrière-plan.
+- **Limites** : Android regroupe les chiffres par tranches d'environ 2 heures ; il ne détaille pas l'USB ni le Bluetooth par app ; sur Android 9 et avant, le détail du réseau mobile demanderait une permission téléphone que Flux ne demande pas (seul le Wi-Fi est alors détaillé).
+- **iPhone** : iOS ne donne à aucune app la consommation des autres apps. L'écran l'explique.
+
 ## Écrans
 
 | Écran | Rôle |
@@ -23,6 +31,7 @@ Une fois GO appuyé, la capture continue jusqu'à STOP (dans l'app, dans la noti
 | Capture en cours | Débit total, courbe des 60 dernières secondes, débit par canal, STOP |
 | Détail d'un canal | Débit entrant / sortant, courbe, volumes depuis GO, pic |
 | Fin de session | Durée, volume total, répartition par canal |
+| Apps en arrière-plan | Consommation en arrière-plan par app (24 h, 7 jours, 30 jours), détail Wi-Fi / mobile, accès à la page de l'app |
 | Historique | Bilan des 30 derniers jours, captures groupées par jour, détail, suppression (une capture ou tout) |
 | Réglages | Unités (Mo/s, Mb/s, auto), thème (sombre, clair, système), canaux affichés, arrêt automatique, écran allumé, historique |
 | Confidentialité | Promesses de l'app et permissions réellement utilisées |
@@ -73,7 +82,8 @@ lib/
   app/                      réglages, palette sombre/claire, accès partagé
   traffic/                  lecture native, calcul des débits, session de capture
   history/                  historique des résumés (si activé)
-  ui/screens/               les sept écrans
+  apps/                     consommation par app (analyse)
+  ui/screens/               les huit écrans
   ui/widgets/               bouton GO, graphique en direct, composants communs
 android/app/src/main/kotlin/com/oseeeb/flux/   lecture des compteurs Android
 ios/Runner/TrafficPlugin.swift                  lecture des compteurs iOS

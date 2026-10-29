@@ -339,3 +339,50 @@ class VolumeBar extends StatelessWidget {
     );
   }
 }
+
+/// Sélecteur à pastilles (Mo/s · Mb/s · Auto, 24 h · 7 jours…).
+class Segmented<T> extends StatelessWidget {
+  const Segmented({super.key, required this.value, required this.options, required this.onChanged});
+
+  final T value;
+  final Map<T, String> options;
+  final ValueChanged<T> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(color: p.ground, borderRadius: BorderRadius.circular(14)),
+      child: Row(
+        children: [
+          for (final entry in options.entries) ...[
+            if (entry.key != options.keys.first) const SizedBox(width: 4),
+            Expanded(
+              child: Semantics(
+                button: true,
+                selected: entry.key == value,
+                child: GestureDetector(
+                  onTap: () => onChanged(entry.key),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    height: 40,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: entry.key == value ? p.accent : Colors.transparent,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      entry.value,
+                      style: fluxText(13, weight: 700, color: entry.key == value ? p.onAccent : p.textSoft),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
