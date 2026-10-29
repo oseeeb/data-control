@@ -4,6 +4,7 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import 'app/scope.dart';
 import 'app/settings.dart';
 import 'app/theme.dart';
+import 'history/history_store.dart';
 import 'traffic/capture_host.dart';
 import 'traffic/capture_session.dart';
 import 'traffic/traffic_source.dart';
@@ -14,14 +15,31 @@ import 'ui/screens/summary_screen.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final settings = await FluxSettings.load();
-  runApp(FluxApp(settings: settings, session: CaptureSession(PlatformTrafficSource()), host: PlatformCaptureHost()));
+  final history = await HistoryStore.load();
+  runApp(
+    FluxApp(
+      settings: settings,
+      session: CaptureSession(PlatformTrafficSource()),
+      history: history,
+      host: PlatformCaptureHost(),
+    ),
+  );
 }
 
 class FluxApp extends StatefulWidget {
-  const FluxApp({super.key, required this.settings, required this.session, this.host = const NoopCaptureHost()});
+  const FluxApp({
+    super.key,
+    required this.settings,
+    required this.session,
+    this.history,
+    this.host = const NoopCaptureHost(),
+  });
 
   final FluxSettings settings;
   final CaptureSession session;
+
+  /// Sans historique fourni (tests), un historique en mémoire.
+  final HistoryStore? history;
   final CaptureHost host;
 
   @override
@@ -30,6 +48,7 @@ class FluxApp extends StatefulWidget {
 
 class _FluxAppState extends State<FluxApp> with WidgetsBindingObserver {
   final _navigator = GlobalKey<NavigatorState>();
+  late final HistoryStore _history = widget.history ?? HistoryStore.inMemory();
   bool _wasRunning = false;
 
   @override
@@ -79,6 +98,10 @@ class _FluxAppState extends State<FluxApp> with WidgetsBindingObserver {
     widget.host.stopped();
     WakelockPlus.disable().catchError((Object _) {});
     final summary = s.takeSummary();
+    // Seulement si l'utilisateur a activé l'historique, et pas pour un GO/STOP accidentel.
+    if (summary != null && widget.settings.keepHistory && summary.duration >= const Duration(seconds: 3)) {
+      _history.add(summary);
+    }
     final navigator = _navigator.currentState;
     if (summary == null || navigator == null) return;
     navigator
@@ -101,6 +124,7 @@ class _FluxAppState extends State<FluxApp> with WidgetsBindingObserver {
     return FluxScope(
       settings: widget.settings,
       session: widget.session,
+      history: _history,
       child: ListenableBuilder(
         listenable: widget.settings,
         builder: (context, _) => MaterialApp(

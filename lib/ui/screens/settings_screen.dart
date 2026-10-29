@@ -5,10 +5,11 @@ import '../../app/settings.dart';
 import '../../app/theme.dart';
 import '../../traffic/channel.dart';
 import '../widgets/common.dart';
+import 'history_screen.dart';
 import 'privacy_screen.dart';
 
-/// Réglages V1 : unités, thème, canaux affichés, arrêt automatique,
-/// écran allumé, confidentialité.
+/// Réglages : unités, thème, canaux affichés, arrêt automatique,
+/// écran allumé, historique, confidentialité.
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
@@ -18,6 +19,24 @@ class SettingsScreen extends StatelessWidget {
     Channel.usb: 'Partage par câble',
     Channel.bluetooth: 'Appareils connectés',
   };
+
+  /// Désactiver l'historique efface aussi ce qui a été gardé (après accord).
+  Future<void> _setKeepHistory(BuildContext context, bool keep) async {
+    final scope = FluxScope.of(context);
+    if (keep || scope.history.isEmpty) {
+      scope.settings.keepHistory = keep;
+      return;
+    }
+    final ok = await confirmDialog(
+      context,
+      title: "Désactiver l'historique ?",
+      message: 'Les résumés déjà gardés seront effacés de ce téléphone.',
+      action: 'Désactiver et effacer',
+    );
+    if (!ok) return;
+    scope.history.clear();
+    scope.settings.keepHistory = false;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -138,6 +157,50 @@ class SettingsScreen extends StatelessWidget {
                           onChanged: (v) => settings.keepScreenOn = v,
                         ),
                       ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 22),
+              const SectionLabel('Historique'),
+              const SizedBox(height: 10),
+              FluxCard(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        const Expanded(
+                          child: _Title(
+                            "Garder l'historique",
+                            sub: 'Le résumé de chaque capture (date, durée, volumes), sur ce téléphone uniquement',
+                          ),
+                        ),
+                        _FluxSwitch(
+                          value: settings.keepHistory,
+                          label: "Garder l'historique",
+                          onChanged: (v) => _setKeepHistory(context, v),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Divider(height: 1, color: p.border),
+                    InkWell(
+                      onTap: () =>
+                          Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const HistoryScreen())),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(minHeight: 48),
+                        child: Row(
+                          children: [
+                            Icon(Icons.history_rounded, size: 20, color: p.textSoft),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text("Voir l'historique", style: fluxText(15, weight: 700, color: p.text)),
+                            ),
+                            Icon(Icons.chevron_right_rounded, color: p.muted),
+                          ],
+                        ),
+                      ),
                     ),
                   ],
                 ),

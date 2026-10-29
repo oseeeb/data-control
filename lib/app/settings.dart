@@ -5,8 +5,8 @@ import '../traffic/channel.dart';
 
 enum RateUnit { megabytes, megabits, auto }
 
-/// Préférences d'affichage. Ce sont les seules choses que Flux garde sur
-/// le téléphone : jamais de mesure de trafic.
+/// Préférences de l'app, gardées sur le téléphone. L'historique des
+/// résumés est désactivé par défaut ([keepHistory]).
 class FluxSettings extends ChangeNotifier {
   FluxSettings._(this._prefs);
 
@@ -19,6 +19,7 @@ class FluxSettings extends ChangeNotifier {
   final Set<Channel> _hidden = {};
   Duration _autoStop = const Duration(minutes: 15);
   bool _keepScreenOn = true;
+  bool _keepHistory = false;
 
   static Future<FluxSettings> load() async {
     final prefs = await SharedPreferences.getInstance();
@@ -32,6 +33,7 @@ class FluxSettings extends ChangeNotifier {
   ThemeMode get theme => _theme;
   Duration get autoStop => _autoStop;
   bool get keepScreenOn => _keepScreenOn;
+  bool get keepHistory => _keepHistory;
   bool isVisible(Channel c) => !_hidden.contains(c);
   List<Channel> get visibleChannels => Channel.values.where(isVisible).toList();
 
@@ -39,6 +41,7 @@ class FluxSettings extends ChangeNotifier {
   set theme(ThemeMode value) => _update(() => _theme = value);
   set autoStop(Duration value) => _update(() => _autoStop = value);
   set keepScreenOn(bool value) => _update(() => _keepScreenOn = value);
+  set keepHistory(bool value) => _update(() => _keepHistory = value);
 
   void setVisible(Channel c, bool visible) => _update(() => visible ? _hidden.remove(c) : _hidden.add(c));
 
@@ -52,6 +55,7 @@ class FluxSettings extends ChangeNotifier {
     final minutes = p.getInt('autoStopMinutes');
     if (minutes != null) _autoStop = Duration(minutes: minutes);
     _keepScreenOn = p.getBool('keepScreenOn') ?? _keepScreenOn;
+    _keepHistory = p.getBool('keepHistory') ?? _keepHistory;
   }
 
   void _update(void Function() change) {
@@ -64,5 +68,6 @@ class FluxSettings extends ChangeNotifier {
     p.setStringList('hidden', _hidden.map((c) => c.key).toList());
     p.setInt('autoStopMinutes', _autoStop.inMinutes);
     p.setBool('keepScreenOn', _keepScreenOn);
+    p.setBool('keepHistory', _keepHistory);
   }
 }

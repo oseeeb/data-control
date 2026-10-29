@@ -2,6 +2,7 @@ import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
 
+import '../../app/scope.dart';
 import '../../app/theme.dart';
 import '../../traffic/traffic_source.dart';
 import '../widgets/common.dart';
@@ -64,11 +65,22 @@ class PrivacyScreen extends StatelessWidget {
               mainAxisSpacing: 10,
               crossAxisSpacing: 10,
               childAspectRatio: 1.25,
-              children: const [
-                _Promise(Icons.save_outlined, 'Aucun enregistrement', "Tout s'efface à l'arrêt. Pas d'historique."),
-                _Promise(Icons.cloud_off_outlined, 'Aucun envoi', 'Rien ne quitte votre téléphone.'),
-                _Promise(Icons.filter_alt_off_outlined, 'Aucun filtrage', 'Le trafic passe sans être touché.'),
-                _Promise(Icons.person_off_outlined, 'Aucun compte', 'Ni e-mail, ni inscription, ni pub.'),
+              children: [
+                if (FluxScope.of(context).settings.keepHistory)
+                  const _Promise(
+                    Icons.history_rounded,
+                    'Résumés seulement',
+                    'Historique activé : date, durée et volumes, sur ce téléphone.',
+                  )
+                else
+                  const _Promise(
+                    Icons.save_outlined,
+                    'Aucun enregistrement',
+                    "Tout s'efface à l'arrêt. Pas d'historique.",
+                  ),
+                const _Promise(Icons.cloud_off_outlined, 'Aucun envoi', 'Rien ne quitte votre téléphone.'),
+                const _Promise(Icons.filter_alt_off_outlined, 'Aucun filtrage', 'Le trafic passe sans être touché.'),
+                const _Promise(Icons.person_off_outlined, 'Aucun compte', 'Ni e-mail, ni inscription, ni pub.'),
               ],
             ),
             const SizedBox(height: 22),

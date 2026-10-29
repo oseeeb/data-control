@@ -1,14 +1,23 @@
 import 'package:flutter/widgets.dart';
 
+import '../history/history_store.dart';
 import '../traffic/capture_session.dart';
 import 'settings.dart';
 
-/// Donne accès aux réglages et à la session depuis n'importe quel écran.
+/// Donne accès aux réglages, à la session et à l'historique depuis
+/// n'importe quel écran.
 class FluxScope extends InheritedWidget {
-  const FluxScope({super.key, required this.settings, required this.session, required super.child});
+  const FluxScope({
+    super.key,
+    required this.settings,
+    required this.session,
+    required this.history,
+    required super.child,
+  });
 
   final FluxSettings settings;
   final CaptureSession session;
+  final HistoryStore history;
 
   static FluxScope of(BuildContext context) {
     final scope = context.dependOnInheritedWidgetOfExactType<FluxScope>();
@@ -17,5 +26,6 @@ class FluxScope extends InheritedWidget {
   }
 
   @override
-  bool updateShouldNotify(FluxScope oldWidget) => settings != oldWidget.settings || session != oldWidget.session;
+  bool updateShouldNotify(FluxScope oldWidget) =>
+      settings != oldWidget.settings || session != oldWidget.session || history != oldWidget.history;
 }

@@ -1,16 +1,32 @@
 import 'package:flutter/material.dart';
 
+import '../../app/scope.dart';
 import '../../app/theme.dart';
 import '../../traffic/capture_session.dart';
 import '../../traffic/channel.dart';
 import '../format.dart';
 import '../widgets/common.dart';
 
-/// Fin de session : le volume par canal, puis tout disparaît.
+/// Résumé d'une capture : à la fin d'une session, ou rouvert depuis
+/// l'historique ([fromHistory]).
 class SummaryScreen extends StatelessWidget {
-  const SummaryScreen({super.key, required this.summary});
+  const SummaryScreen({super.key, required this.summary, this.fromHistory = false});
 
   final SessionSummary summary;
+  final bool fromHistory;
+
+  Future<void> _delete(BuildContext context) async {
+    final history = FluxScope.of(context).history;
+    final ok = await confirmDialog(
+      context,
+      title: 'Supprimer cette capture ?',
+      message: 'Son résumé sera effacé de l’historique.',
+      action: 'Supprimer',
+    );
+    if (!ok || !context.mounted) return;
+    history.remove(summary);
+    Navigator.of(context).pop();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +43,23 @@ class SummaryScreen extends StatelessWidget {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 28, 20, 12),
                 children: [
-                  Text('SESSION TERMINÉE', style: fluxText(13, weight: 700, color: p.accentText, spacing: 0.08)),
+                  if (fromHistory) ...[
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: SquareIconButton(
+                        icon: Icons.arrow_back_rounded,
+                        label: "Retour à l'historique",
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                  Text(
+                    fromHistory
+                        ? '${formatDay(summary.startedAt).toUpperCase()} · ${formatTime(summary.startedAt)}'
+                        : 'SESSION TERMINÉE',
+                    style: fluxText(13, weight: 700, color: p.accentText, spacing: 0.08),
+                  ),
                   const SizedBox(height: 6),
                   Text(
                     '${formatDuration(summary.duration)} de données en mouvement',
@@ -110,49 +142,72 @@ class SummaryScreen extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 20),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: p.accentWash,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: p.accentLine),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(Icons.verified_user_outlined, size: 22, color: p.accentText),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text("Rien n'a été enregistré", style: fluxText(14, weight: 700, color: p.text)),
-                              const SizedBox(height: 4),
-                              Text(
-                                "Ce résumé disparaît dès que vous quittez l'écran. Aucun historique, aucun envoi.",
-                                style: fluxText(13, color: p.textSoft, height: 1.45),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  if (!fromHistory) ...[const SizedBox(height: 20), const _PrivacyNotice()],
                 ],
               ),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
-              child: BigActionButton(
-                label: 'Nouvelle capture',
-                color: p.accent,
-                textColor: p.onAccent,
-                onPressed: () => Navigator.of(context).popUntil((r) => r.isFirst),
-              ),
+              child: fromHistory
+                  ? BigActionButton(
+                      label: 'Supprimer cette capture',
+                      color: p.card,
+                      textColor: p.liveText,
+                      onPressed: () => _delete(context),
+                    )
+                  : BigActionButton(
+                      label: 'Nouvelle capture',
+                      color: p.accent,
+                      textColor: p.onAccent,
+                      onPressed: () => Navigator.of(context).popUntil((r) => r.isFirst),
+                    ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Ce qu'il advient de ce résumé : effacé, ou gardé dans l'historique.
+class _PrivacyNotice extends StatelessWidget {
+  const _PrivacyNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    final kept = FluxScope.of(context).settings.keepHistory;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: p.accentWash,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: p.accentLine),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(kept ? Icons.history_rounded : Icons.verified_user_outlined, size: 22, color: p.accentText),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  kept ? 'Résumé ajouté à l’historique' : "Rien n'a été enregistré",
+                  style: fluxText(14, weight: 700, color: p.text),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  kept
+                      ? 'Seulement la date, la durée et les volumes par canal, sur ce téléphone. Rien n’est envoyé.'
+                      : "Ce résumé disparaît dès que vous quittez l'écran. Aucun historique, aucun envoi.",
+                  style: fluxText(13, color: p.textSoft, height: 1.45),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

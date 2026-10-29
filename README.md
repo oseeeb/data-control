@@ -3,7 +3,7 @@
 Application mobile (Android et iOS) qui affiche **en direct** la consommation de données du téléphone, canal par canal : **Wi-Fi, Mobile, USB, Bluetooth**.
 
 - Un gros bouton **GO** pour lancer la capture, **STOP** pour l'arrêter.
-- **Rien n'est enregistré** : les mesures vivent en mémoire pendant la capture, puis le résumé disparaît quand on quitte l'écran de fin. Aucun historique.
+- **Rien n'est enregistré par défaut** : les mesures vivent en mémoire pendant la capture, puis le résumé disparaît quand on quitte l'écran de fin. L'**historique** est un choix de l'utilisateur (désactivé au départ) : il ne garde que des résumés (date, durée, volumes par canal), sur le téléphone.
 - **Rien n'est filtré** : l'app lit seulement les compteurs d'octets du système, jamais le contenu du trafic.
 - **Rien n'est envoyé** : sur Android, l'app ne demande même pas la permission Internet.
 
@@ -22,10 +22,16 @@ Une fois GO appuyé, la capture continue jusqu'à STOP, même si l'on change d'�
 | Capture en cours | Débit total, courbe des 60 dernières secondes, débit par canal, STOP |
 | Détail d'un canal | Débit entrant / sortant, courbe, volumes depuis GO, pic |
 | Fin de session | Durée, volume total, répartition par canal |
-| Réglages | Unités (Mo/s, Mb/s, auto), thème (sombre, clair, système), canaux affichés, arrêt automatique, écran allumé |
+| Historique | Bilan des 30 derniers jours, captures groupées par jour, détail, suppression (une capture ou tout) |
+| Réglages | Unités (Mo/s, Mb/s, auto), thème (sombre, clair, système), canaux affichés, arrêt automatique, écran allumé, historique |
 | Confidentialité | Promesses de l'app et permissions réellement utilisées |
 
-Les seules choses gardées sur le téléphone sont les **réglages** (via `shared_preferences`).
+Ce qui est gardé sur le téléphone (via `shared_preferences`) :
+
+- les **réglages** ;
+- si l'historique est activé, les **résumés de capture** (500 au plus, les plus anciens partent en premier). Une capture de moins de 3 s n'est pas gardée. Désactiver l'historique efface tous les résumés.
+
+La sauvegarde automatique d'Android vers le cloud est désactivée (`allowBackup="false"`) : l'historique ne quitte pas le téléphone. Sur iPhone, il peut faire partie des sauvegardes de l'appareil (iCloud ou ordinateur) faites par l'utilisateur.
 
 ## Comment la mesure fonctionne
 
@@ -65,7 +71,8 @@ lib/
   main.dart                 démarrage, thème, cycle de vie
   app/                      réglages, palette sombre/claire, accès partagé
   traffic/                  lecture native, calcul des débits, session de capture
-  ui/screens/               les six écrans
+  history/                  historique des résumés (si activé)
+  ui/screens/               les sept écrans
   ui/widgets/               bouton GO, graphique en direct, composants communs
 android/app/src/main/kotlin/com/oseeeb/flux/   lecture des compteurs Android
 ios/Runner/TrafficPlugin.swift                  lecture des compteurs iOS

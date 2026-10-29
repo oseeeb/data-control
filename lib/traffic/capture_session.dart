@@ -7,11 +7,13 @@ import 'rate_meter.dart';
 import 'snapshot.dart';
 import 'traffic_source.dart';
 
-/// Ce qui reste d'une capture une fois arrêtée. Vit uniquement en mémoire,
-/// le temps d'afficher l'écran de fin.
+/// Ce qui reste d'une capture une fois arrêtée : sa date, sa durée et les
+/// volumes par canal. Jamais le contenu du trafic. Vit en mémoire le temps de
+/// l'écran de fin, et dans l'historique seulement si l'utilisateur l'a activé.
 class SessionSummary {
-  const SessionSummary({required this.duration, required this.rxBytes, required this.txBytes});
+  const SessionSummary({required this.startedAt, required this.duration, required this.rxBytes, required this.txBytes});
 
+  final DateTime startedAt;
   final Duration duration;
   final Map<Channel, int> rxBytes;
   final Map<Channel, int> txBytes;
@@ -20,14 +22,38 @@ class SessionSummary {
   int get totalTx => txBytes.values.fold(0, (a, b) => a + b);
   int get total => totalRx + totalTx;
   int volumeOf(Channel c) => (rxBytes[c] ?? 0) + (txBytes[c] ?? 0);
+
+  Map<String, Object> toJson() => {
+    'startedAt': startedAt.toUtc().toIso8601String(),
+    'durationSec': duration.inSeconds,
+    'rx': {for (final e in rxBytes.entries) e.key.key: e.value},
+    'tx': {for (final e in txBytes.entries) e.key.key: e.value},
+  };
+
+  static SessionSummary fromJson(Map<String, Object?> json) {
+    Map<Channel, int> bytes(Object? raw) => {
+      for (final e in ((raw as Map?) ?? const {}).entries)
+        if (Channel.fromKey(e.key as String) != null && e.value is int)
+          Channel.fromKey(e.key as String)!: e.value as int,
+    };
+    return SessionSummary(
+      startedAt: DateTime.parse(json['startedAt'] as String).toLocal(),
+      duration: Duration(seconds: json['durationSec'] as int),
+      rxBytes: bytes(json['rx']),
+      txBytes: bytes(json['tx']),
+    );
+  }
 }
 
 /// Surveille les canaux et, après GO, mesure les débits en direct.
 ///
-/// Rien n'est écrit sur le disque : l'historique se limite aux
-/// [historyLength] dernières secondes et disparaît à l'arrêt.
+/// La session n'écrit rien sur le disque : la courbe se limite aux
+/// [historyLength] dernières secondes et disparaît à l'arrêt. Seul le
+/// résumé peut être gardé, par [HistoryStore], si l'utilisateur l'a choisi.
 class CaptureSession extends ChangeNotifier {
-  CaptureSession(this._source, {Stopwatch Function()? stopwatch}) : _newStopwatch = stopwatch ?? Stopwatch.new;
+  CaptureSession(this._source, {Stopwatch Function()? stopwatch, DateTime Function()? now})
+    : _newStopwatch = stopwatch ?? Stopwatch.new,
+      _now = now ?? DateTime.now;
 
   static const historyLength = 60;
   static const _idleInterval = Duration(seconds: 2);
@@ -35,6 +61,8 @@ class CaptureSession extends ChangeNotifier {
 
   final TrafficSource _source;
   final Stopwatch Function() _newStopwatch;
+  final DateTime Function() _now;
+  DateTime? _startedAt;
 
   Timer? _timer;
   bool _reading = false;
@@ -99,6 +127,7 @@ class CaptureSession extends ChangeNotifier {
     _running = true;
     _autoStop = autoStop;
     _clock = _newStopwatch()..start();
+    _startedAt = _now();
     _previous = _latest;
     _lastSummary = null;
     _rates = {};
@@ -112,7 +141,12 @@ class CaptureSession extends ChangeNotifier {
   }
 
   SessionSummary stop() {
-    final summary = SessionSummary(duration: elapsed, rxBytes: Map.of(_rxTotal), txBytes: Map.of(_txTotal));
+    final summary = SessionSummary(
+      startedAt: _startedAt ?? _now(),
+      duration: elapsed,
+      rxBytes: Map.of(_rxTotal),
+      txBytes: Map.of(_txTotal),
+    );
     _running = false;
     _clock?.stop();
     _clock = null;

@@ -275,3 +275,67 @@ class SectionLabel extends StatelessWidget {
     );
   }
 }
+
+/// Demande de confirmation avant une action qui efface quelque chose.
+Future<bool> confirmDialog(
+  BuildContext context, {
+  required String title,
+  required String message,
+  required String action,
+}) async {
+  final p = context.palette;
+  final result = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      backgroundColor: p.card,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+      title: Text(title, style: fluxText(18, weight: 800, color: p.text)),
+      content: Text(message, style: fluxText(14, color: p.textSoft, height: 1.45)),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: Text('Annuler', style: fluxText(14, weight: 700, color: p.textSoft)),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          child: Text(action, style: fluxText(14, weight: 700, color: p.liveText)),
+        ),
+      ],
+    ),
+  );
+  return result ?? false;
+}
+
+/// Barre empilée : la part de chaque canal dans un volume.
+class VolumeBar extends StatelessWidget {
+  const VolumeBar({super.key, required this.volumes, this.height = 6});
+
+  final Map<Channel, int> volumes;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    final used = Channel.values.where((c) => (volumes[c] ?? 0) > 0).toList();
+    final total = used.fold(0, (a, c) => a + volumes[c]!);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(height),
+      child: SizedBox(
+        height: height,
+        child: total == 0
+            ? Container(color: p.track)
+            : Row(
+                children: [
+                  for (var i = 0; i < used.length; i++) ...[
+                    if (i > 0) const SizedBox(width: 2),
+                    Expanded(
+                      flex: (volumes[used[i]]! * 1000 ~/ total).clamp(12, 1000),
+                      child: Container(color: p.of(used[i]).bar),
+                    ),
+                  ],
+                ],
+              ),
+      ),
+    );
+  }
+}

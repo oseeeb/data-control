@@ -69,10 +69,15 @@ class _LiveScreenState extends State<LiveScreen> {
                           const SizedBox(width: 10),
                           LiveBadge('En direct · ${formatClock(s.elapsed)}'),
                           const SizedBox(width: 12),
-                          const Expanded(
+                          Expanded(
                             child: Align(
                               alignment: Alignment.centerRight,
-                              child: PrivacyPill('Aucun filtrage · aucune sauvegarde', framed: false),
+                              child: PrivacyPill(
+                                scope.settings.keepHistory
+                                    ? 'Aucun filtrage · rien n’est envoyé'
+                                    : 'Aucun filtrage · aucune sauvegarde',
+                                framed: false,
+                              ),
                             ),
                           ),
                         ],

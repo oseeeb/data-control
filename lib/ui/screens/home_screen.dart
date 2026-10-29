@@ -10,6 +10,7 @@ import '../format.dart';
 import '../widgets/common.dart';
 import '../widgets/go_button.dart';
 import 'channel_screen.dart';
+import 'history_screen.dart';
 import 'live_screen.dart';
 import 'settings_screen.dart';
 
@@ -48,7 +49,17 @@ class HomeScreen extends StatelessWidget {
                     const _Logo(),
                     const SizedBox(width: 12),
                     const Spacer(),
-                    const Flexible(flex: 4, child: PrivacyPill("Rien n'est enregistré")),
+                    Flexible(
+                      flex: 4,
+                      child: PrivacyPill(scope.settings.keepHistory ? "Rien n'est envoyé" : "Rien n'est enregistré"),
+                    ),
+                    const SizedBox(width: 8),
+                    SquareIconButton(
+                      icon: Icons.history_rounded,
+                      label: 'Historique',
+                      onPressed: () =>
+                          Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const HistoryScreen())),
+                    ),
                     const SizedBox(width: 8),
                     SquareIconButton(
                       icon: Icons.tune_rounded,
