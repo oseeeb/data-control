@@ -7,11 +7,18 @@ Application mobile (Android et iOS) qui affiche **en direct** la consommation de
 - **Rien n'est filtré** : l'app lit seulement les compteurs d'octets du système, jamais le contenu du trafic.
 - **Rien n'est envoyé** : sur Android, l'app ne demande même pas la permission Internet.
 
+## Capture en arrière-plan
+
+Une fois GO appuyé, la capture continue jusqu'à STOP, même si l'on change d'écran ou d'app.
+
+- **Android** : un service au premier plan garde Flux actif et affiche une notification « En direct » (débit, volume depuis GO) avec un bouton **STOP**. Un verrou de veille partiel permet de continuer écran éteint ; il est libéré à l'arrêt (et au plus tard après 6 h). Fermer Flux depuis les apps récentes arrête la capture.
+- **iOS** : le système ne permet pas de mesurer en continu en arrière-plan. La capture reprend au retour dans Flux ; comme les compteurs du système sont cumulés, les volumes du temps passé ailleurs restent justes.
+
 ## Écrans
 
 | Écran | Rôle |
 | --- | --- |
-| Accueil | Bouton GO, état de chaque canal (connecté, non branché, non mesurable…) |
+| Accueil | Bouton GO, état de chaque canal ; pendant une capture : STOP et débits en direct |
 | Capture en cours | Débit total, courbe des 60 dernières secondes, débit par canal, STOP |
 | Détail d'un canal | Débit entrant / sortant, courbe, volumes depuis GO, pic |
 | Fin de session | Durée, volume total, répartition par canal |

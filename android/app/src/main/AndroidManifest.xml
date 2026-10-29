@@ -3,6 +3,12 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <!-- Savoir si le Bluetooth est allumé (Android 11 et avant). -->
     <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30"/>
+    <!-- Capture en arrière-plan : service au premier plan + notification « En direct ». -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- Continuer à mesurer écran éteint, pendant la capture uniquement. -->
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <!-- Volontairement AUCUNE permission INTERNET : Flux ne peut rien envoyer. -->
 
     <application
@@ -31,6 +37,15 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <service
+            android:name=".CaptureService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse"
+            android:stopWithTask="true">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Mesure en direct du débit réseau par canal, lancée par l'utilisateur (bouton GO) et arrêtée par STOP. Aucune donnée n'est enregistrée ni envoyée."/>
+        </service>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

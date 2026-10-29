@@ -1,17 +1,20 @@
 import 'package:flutter/material.dart';
-import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../../app/scope.dart';
+import '../../app/settings.dart';
 import '../../app/theme.dart';
+import '../../traffic/capture_session.dart';
 import '../../traffic/channel.dart';
 import '../channel_text.dart';
 import '../format.dart';
 import '../widgets/common.dart';
 import '../widgets/go_button.dart';
+import 'channel_screen.dart';
 import 'live_screen.dart';
 import 'settings_screen.dart';
 
-/// Accueil : le bouton GO et l'état des quatre canaux.
+/// Accueil : le bouton GO et l'état des quatre canaux. Pendant une capture,
+/// il devient STOP et les cartes affichent les débits en direct.
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
@@ -19,7 +22,6 @@ class HomeScreen extends StatelessWidget {
     final scope = FluxScope.of(context);
     final limit = scope.settings.autoStop;
     scope.session.start(autoStop: limit == Duration.zero ? null : limit);
-    if (scope.settings.keepScreenOn) WakelockPlus.enable().catchError((Object _) {});
     Navigator.of(context).push(fadeRoute(const LiveScreen()));
   }
 
@@ -32,8 +34,12 @@ class HomeScreen extends StatelessWidget {
         child: ListenableBuilder(
           listenable: Listenable.merge([scope.session, scope.settings]),
           builder: (context, _) {
+            final s = scope.session;
+            final unit = scope.settings.unit;
+            final running = s.running;
             final channels = scope.settings.visibleChannels;
-            final zero = formatRate(0, scope.settings.unit);
+            final total = formatRate(running ? s.totalRxPerSec : 0, unit);
+            final sum = channels.fold(0.0, (a, c) => a + s.rate(c).rxPerSec);
             return ListView(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
               children: [
@@ -54,33 +60,51 @@ class HomeScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 26),
                 Center(
-                  child: Text('PRÊT À CAPTER', style: fluxText(13, weight: 700, color: p.accentText, spacing: 0.08)),
+                  child: Text(
+                    running ? 'EN DIRECT · ${formatClock(s.elapsed)}' : 'PRÊT À CAPTER',
+                    style: fluxText(13, weight: 700, color: running ? p.liveText : p.accentText, spacing: 0.08),
+                  ),
                 ),
                 const SizedBox(height: 14),
-                Center(child: GoButton(onPressed: () => _start(context))),
+                Center(
+                  child: GoButton(running: running, onPressed: () => running ? s.stop() : _start(context)),
+                ),
                 const SizedBox(height: 14),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.baseline,
                   textBaseline: TextBaseline.alphabetic,
                   children: [
-                    Text(zero.value, style: fluxText(34, weight: 700, numbers: true, color: p.text, spacing: -0.02)),
+                    Text(total.value, style: fluxText(34, weight: 700, numbers: true, color: p.text, spacing: -0.02)),
                     const SizedBox(width: 6),
-                    Text('${zero.unit} au total', style: fluxText(15, weight: 600, color: p.muted)),
+                    Text('${total.unit} au total', style: fluxText(15, weight: 600, color: p.muted)),
                   ],
                 ),
                 const SizedBox(height: 10),
                 Center(
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 280),
+                    constraints: const BoxConstraints(maxWidth: 300),
                     child: Text(
-                      'Appuyez sur GO pour voir vos données circuler en direct, canal par canal.',
+                      running
+                          ? 'La capture continue même si vous changez d’écran ou d’app. Appuyez sur STOP pour l’arrêter.'
+                          : 'Appuyez sur GO pour voir vos données circuler en direct, canal par canal.',
                       textAlign: TextAlign.center,
                       style: fluxText(13, color: p.muted, height: 1.45),
                     ),
                   ),
                 ),
-                const SizedBox(height: 22),
+                if (running) ...[
+                  const SizedBox(height: 6),
+                  Center(
+                    child: TextButton.icon(
+                      onPressed: () => Navigator.of(context).push(fadeRoute(const LiveScreen())),
+                      icon: const Icon(Icons.show_chart_rounded, size: 18),
+                      label: Text('Voir la courbe en direct', style: fluxText(14, weight: 700)),
+                      style: TextButton.styleFrom(foregroundColor: p.accentText, minimumSize: const Size(44, 44)),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 16),
                 GridView(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
@@ -92,7 +116,10 @@ class HomeScreen extends StatelessWidget {
                     crossAxisSpacing: 12,
                     mainAxisExtent: 172 * MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 1.6),
                   ),
-                  children: [for (final c in channels) _ChannelCard(c)],
+                  children: [
+                    for (final c in channels)
+                      _ChannelCard(c, session: s, unit: unit, share: sum > 0 ? s.rate(c).rxPerSec / sum : 0),
+                  ],
                 ),
               ],
             );
@@ -125,21 +152,34 @@ class _Logo extends StatelessWidget {
 }
 
 class _ChannelCard extends StatelessWidget {
-  const _ChannelCard(this.channel);
+  const _ChannelCard(this.channel, {required this.session, required this.unit, required this.share});
+
   final Channel channel;
+  final CaptureSession session;
+  final RateUnit unit;
+  final double share;
 
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
     final colors = p.of(channel);
-    final reading = FluxScope.of(context).session.reading(channel);
+    final reading = session.reading(channel);
     final active = channelActive(reading);
+    final live = active && session.running;
+    final rate = session.rate(channel);
+    final down = formatRate(rate.rxPerSec, unit);
     return Semantics(
       container: true,
-      label: '${channel.label}, ${channelStatus(channel, reading)}',
+      button: live,
+      label: live
+          ? '${channel.label}, ${down.value} ${down.unit}. Voir le détail'
+          : '${channel.label}, ${channelStatus(channel, reading)}',
       excludeSemantics: true,
       child: FluxCard(
         muted: !active,
+        onTap: live
+            ? () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => ChannelScreen(channel: channel)))
+            : null,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -159,15 +199,34 @@ class _ChannelCard extends StatelessWidget {
             const Spacer(),
             Text(channel.label, style: fluxText(14, weight: 700, color: p.text)),
             const SizedBox(height: 2),
-            Text('—', style: fluxText(22, weight: 700, numbers: true, color: active ? p.text : p.faint)),
+            if (live)
+              Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(text: '↓ ${down.value} '),
+                    TextSpan(
+                      text: down.unit,
+                      style: fluxText(12, color: p.muted),
+                    ),
+                  ],
+                ),
+                maxLines: 1,
+                style: fluxText(22, weight: 700, numbers: true, color: p.text),
+              )
+            else
+              Text('—', style: fluxText(22, weight: 700, numbers: true, color: active ? p.text : p.faint)),
             Text(
-              active ? 'En attente de GO' : channelIdleHint(channel, reading),
+              live
+                  ? '↑ ${formatRate(rate.txPerSec, unit)}'
+                  : active
+                  ? 'En attente de GO'
+                  : channelIdleHint(channel, reading),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: fluxText(12, color: p.muted),
             ),
             const SizedBox(height: 10),
-            LevelBar(fraction: 0, color: colors.bar),
+            LevelBar(fraction: live ? share : 0, color: colors.bar),
           ],
         ),
       ),

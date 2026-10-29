@@ -92,6 +92,14 @@ class PrivacyScreen extends StatelessWidget {
                       text: 'Pour savoir si le Bluetooth est allumé. Flux ne se connecte à aucun appareil.',
                     ),
                     const _Permission(
+                      icon: Icons.notifications_none_rounded,
+                      title: 'Notifications',
+                      status: 'Au premier GO',
+                      text:
+                          'Pour que la capture continue quand vous utilisez d’autres apps, avec le débit et un bouton STOP. '
+                          'Si vous refusez, la capture continue mais sans notification visible.',
+                    ),
+                    const _Permission(
                       icon: Icons.public_off_rounded,
                       title: 'Accès à Internet',
                       status: 'Non demandé',

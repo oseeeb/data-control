@@ -12,6 +12,11 @@ final class TrafficPlugin: NSObject, FlutterPlugin {
     switch call.method {
     case "snapshot":
       result(TrafficReader.snapshot())
+    case "captureStarted", "captureUpdate", "captureStopped":
+      // iOS ne laisse pas une app mesurer en continu en arrière-plan : la
+      // capture reprend au retour dans Flux, et les compteurs cumulés gardent
+      // des volumes justes pour le temps passé ailleurs.
+      result(nil)
     case "openAppSettings":
       if let url = URL(string: UIApplication.openSettingsURLString) {
         UIApplication.shared.open(url)

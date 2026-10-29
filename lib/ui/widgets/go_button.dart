@@ -3,12 +3,13 @@ import 'package:flutter/services.dart';
 
 import '../../app/theme.dart';
 
-/// Le gros bouton GO, entouré de deux anneaux et d'une pulsation douce
-/// qui invite à appuyer.
+/// Le gros bouton rond de l'accueil, entouré de deux anneaux et d'une
+/// pulsation : GO (vert) au repos, STOP (rouge) pendant une capture.
 class GoButton extends StatefulWidget {
-  const GoButton({super.key, required this.onPressed});
+  const GoButton({super.key, required this.onPressed, this.running = false});
 
   final VoidCallback onPressed;
+  final bool running;
 
   @override
   State<GoButton> createState() => _GoButtonState();
@@ -29,6 +30,7 @@ class _GoButtonState extends State<GoButton> with SingleTickerProviderStateMixin
   Widget build(BuildContext context) {
     final p = context.palette;
     final reduceMotion = MediaQuery.of(context).disableAnimations;
+    final fill = widget.running ? p.stop : p.accent;
     return SizedBox(
       width: 236,
       height: 236,
@@ -63,7 +65,7 @@ class _GoButtonState extends State<GoButton> with SingleTickerProviderStateMixin
                     height: 164,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      border: Border.all(color: p.accent.withValues(alpha: 0.5 * (1 - t)), width: 3),
+                      border: Border.all(color: fill.withValues(alpha: 0.5 * (1 - t)), width: 3),
                     ),
                   ),
                 );
@@ -71,7 +73,7 @@ class _GoButtonState extends State<GoButton> with SingleTickerProviderStateMixin
             ),
           Semantics(
             button: true,
-            label: 'Démarrer la capture',
+            label: widget.running ? 'Arrêter la capture' : 'Démarrer la capture',
             excludeSemantics: true,
             child: GestureDetector(
               onTapDown: (_) => setState(() => _pressed = true),
@@ -84,16 +86,20 @@ class _GoButtonState extends State<GoButton> with SingleTickerProviderStateMixin
               child: AnimatedScale(
                 scale: _pressed ? 0.96 : 1,
                 duration: const Duration(milliseconds: 150),
-                child: Container(
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 250),
                   width: 164,
                   height: 164,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: p.accent,
+                    color: fill,
                     boxShadow: [BoxShadow(color: p.goShadow, blurRadius: 50, offset: const Offset(0, 18))],
                   ),
-                  child: Text('GO', style: fluxText(52, weight: 700, numbers: true, color: p.onAccent, spacing: -0.02)),
+                  child: Text(
+                    widget.running ? 'STOP' : 'GO',
+                    style: fluxText(52, weight: 700, numbers: true, color: p.onAccent, spacing: -0.02),
+                  ),
                 ),
               ),
             ),
