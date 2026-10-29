@@ -37,8 +37,6 @@ class FluxPalette extends ThemeExtension<FluxPalette> {
     required this.stop,
     required this.liveText,
     required this.liveWash,
-    required this.logoGround,
-    required this.logoMark,
     required this.goShadow,
     required this.channels,
   });
@@ -61,8 +59,6 @@ class FluxPalette extends ThemeExtension<FluxPalette> {
   final Color stop;
   final Color liveText;
   final Color liveWash;
-  final Color logoGround;
-  final Color logoMark;
   final Color goShadow;
   final Map<Channel, ChannelColors> channels;
 
@@ -87,8 +83,6 @@ class FluxPalette extends ThemeExtension<FluxPalette> {
     stop: Color(0xFFFF6B6B),
     liveText: Color(0xFFFF8A8A),
     liveWash: Color(0x24FF6B6B),
-    logoGround: Color(0xFFC6F432),
-    logoMark: Color(0xFF0B0F1A),
     goShadow: Color(0x73000000),
     channels: {
       Channel.wifi: ChannelColors(text: Color(0xFF5B9BFF), bar: Color(0xFF5B9BFF), tint: Color(0x295B9BFF)),
@@ -117,8 +111,6 @@ class FluxPalette extends ThemeExtension<FluxPalette> {
     stop: Color(0xFFFF6B6B),
     liveText: Color(0xFFB42318),
     liveWash: Color(0xFFFDE8E8),
-    logoGround: Color(0xFF0E1424),
-    logoMark: Color(0xFFC6F432),
     goShadow: Color(0x290E1424),
     channels: {
       Channel.wifi: ChannelColors(text: Color(0xFF2563EB), bar: Color(0xFF2563EB), tint: Color(0xFFE6EEFF)),

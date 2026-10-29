@@ -1,12 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Icône de notification : la courbe du logo Flux, en blanc. -->
+<!-- Icône de notification : la flèche ondulée du logo Flux, en blanc
+     (Android n'affiche que la silhouette dans la barre d'état). -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
     <path
-        android:pathData="M3,12h4l3,-7 4,14 3,-7h4"
+        android:pathData="M2.5,14.5C5,10.5 8.5,10 11.5,12.5C14.5,15 17,15.2 20,12.5"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="2.4"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+    <path
+        android:pathData="M15.8,10.2L20.8,11.9L19.3,16.8"
         android:strokeColor="#FFFFFFFF"
         android:strokeWidth="2.4"
         android:strokeLineCap="round"

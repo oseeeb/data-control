@@ -141,8 +141,12 @@ class _Logo extends StatelessWidget {
         Container(
           width: 36,
           height: 36,
-          decoration: BoxDecoration(color: p.logoGround, borderRadius: BorderRadius.circular(12)),
-          child: Icon(Icons.show_chart_rounded, size: 22, color: p.logoMark),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(11),
+            border: Border.all(color: p.border),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Image.asset('assets/brand/flux_icon.png', fit: BoxFit.cover, semanticLabel: 'Logo Flux'),
         ),
         const SizedBox(width: 10),
         Text('Flux', style: fluxText(22, weight: 700, numbers: true, color: p.text, spacing: -0.02)),

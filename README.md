@@ -72,6 +72,15 @@ ios/Runner/TrafficPlugin.swift                  lecture des compteurs iOS
 test/                       tests du calcul, du format et du parcours GO → STOP
 ```
 
+## Logo et icône
+
+Le logo part de la proposition d'origine (`docs/logo/proposition_originale.webp`), recolorée aux couleurs de l'app (vert citron `#C6F432` et blanc sur fond `#0B0F1A`) par `tool/recolor_logo.py`.
+
+- `assets/brand/flux_icon.png` : icône complète (iOS, en-tête de l'app).
+- `assets/brand/flux_icon_foreground.png` : motif seul pour l'icône adaptative Android.
+
+Après une modification : `dart run flutter_launcher_icons` régénère toutes les tailles. Pensez à annuler la modification que l'outil fait à tort dans `ios/Runner.xcodeproj/project.pbxproj` (`git checkout` de ce fichier).
+
 ## Polices
 
 Manrope et Space Grotesk sont embarquées dans l'app (`assets/fonts/`, licence SIL Open Font License) : rien n'est téléchargé au lancement.
