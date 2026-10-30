@@ -4,34 +4,46 @@ import android.app.AppOpsManager
 import android.app.usage.NetworkStats
 import android.app.usage.NetworkStatsManager
 import android.content.Context
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.drawable.Drawable
 import android.net.ConnectivityManager
 import android.os.Build
 import android.os.Process
 import android.util.Log
+import org.json.JSONArray
+import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 
 /**
  * Consommation de chaque app, telle qu'Android la compte déjà (Réglages ›
  * Utilisation des données). Flux ne capte rien lui-même ici : il lit ces
  * chiffres à la demande, avec l'accès « Données d'utilisation » accordé par
- * l'utilisateur, et ne les garde pas.
+ * l'utilisateur.
  *
  * Android sépare le premier plan (app à l'écran) de l'arrière-plan, et le
- * Wi-Fi du réseau mobile. Il regroupe les chiffres par tranches d'environ
- * deux heures : une analyse sur 24 h est donc précise à ~2 h près.
+ * Wi-Fi du réseau mobile. Il range les chiffres par tranches d'environ deux
+ * heures. Pour la part de chaque app pendant une capture, on ne lit donc pas
+ * une période : on prend les totaux à GO et à STOP, et la différence est
+ * exacte (chaque lecture force Android à relever ses compteurs).
  */
 class AppUsageReader(private val context: Context) {
 
-    private val packages = context.packageManager
+    companion object {
+        /** Taille des tranches d'Android pour les chiffres par app. */
+        const val BUCKET_MS = 2L * 60 * 60 * 1000
 
-    private class Usage {
-        var wifiFgRx = 0L; var wifiFgTx = 0L; var wifiBgRx = 0L; var wifiBgTx = 0L
-        var mobileFgRx = 0L; var mobileFgTx = 0L; var mobileBgRx = 0L; var mobileBgTx = 0L
-        val total get() = wifiFgRx + wifiFgTx + wifiBgRx + wifiBgTx + mobileFgRx + mobileFgTx + mobileBgRx + mobileBgTx
+        /** Ordre des 8 compteurs d'une app dans un instantané. */
+        val FIELDS = listOf("wifiFgRx", "wifiFgTx", "wifiBgRx", "wifiBgTx", "mobileFgRx", "mobileFgTx", "mobileBgRx", "mobileBgTx")
+
+        /** Fin de tranche suivante : la tranche en cours compte alors en entier. */
+        fun alignUp(ms: Long) = (ms / BUCKET_MS + 1) * BUCKET_MS
+        fun alignDown(ms: Long) = ms / BUCKET_MS * BUCKET_MS
     }
+
+    private val packages = context.packageManager
 
     /** L'utilisateur a-t-il donné l'accès « Données d'utilisation » ? */
     fun hasAccess(): Boolean {
@@ -45,10 +57,13 @@ class AppUsageReader(private val context: Context) {
         return mode == AppOpsManager.MODE_ALLOWED
     }
 
-    /** Les [limit] apps qui ont le plus consommé entre [startMs] et [endMs]. */
-    fun query(startMs: Long, endMs: Long, limit: Int = 60): List<Map<String, Any?>> {
-        val stats = context.getSystemService(NetworkStatsManager::class.java) ?: return emptyList()
-        val byUid = mutableMapOf<Int, Usage>()
+    /**
+     * Les 8 compteurs de chaque uid, cumulés entre [startMs] et [endMs].
+     * Avec [endMs] dans le futur, la tranche en cours compte en entier.
+     */
+    private fun counters(startMs: Long, endMs: Long): Map<Int, LongArray> {
+        val stats = context.getSystemService(NetworkStatsManager::class.java) ?: return emptyMap()
+        val byUid = mutableMapOf<Int, LongArray>()
         for (type in listOf(ConnectivityManager.TYPE_WIFI, ConnectivityManager.TYPE_MOBILE)) {
             val result = try {
                 stats.querySummary(type, null, startMs, endMs)
@@ -61,33 +76,59 @@ class AppUsageReader(private val context: Context) {
             val bucket = NetworkStats.Bucket()
             while (result.hasNextBucket()) {
                 result.getNextBucket(bucket)
-                val u = byUid.getOrPut(bucket.uid) { Usage() }
+                val c = byUid.getOrPut(bucket.uid) { LongArray(8) }
                 val background = bucket.state != NetworkStats.Bucket.STATE_FOREGROUND
-                val wifi = type == ConnectivityManager.TYPE_WIFI
-                when {
-                    wifi && background -> { u.wifiBgRx += bucket.rxBytes; u.wifiBgTx += bucket.txBytes }
-                    wifi -> { u.wifiFgRx += bucket.rxBytes; u.wifiFgTx += bucket.txBytes }
-                    background -> { u.mobileBgRx += bucket.rxBytes; u.mobileBgTx += bucket.txBytes }
-                    else -> { u.mobileFgRx += bucket.rxBytes; u.mobileFgTx += bucket.txBytes }
-                }
+                val base = (if (type == ConnectivityManager.TYPE_WIFI) 0 else 4) + (if (background) 2 else 0)
+                c[base] += bucket.rxBytes
+                c[base + 1] += bucket.txBytes
             }
             result.close()
         }
-        return byUid.entries
-            .filter { it.value.total > 0 }
-            .sortedByDescending { it.value.total }
-            .take(limit)
-            .map { (uid, u) -> describe(uid) + usageMap(u) }
+        return byUid
     }
 
-    private fun usageMap(u: Usage): Map<String, Any?> = mapOf(
-        "wifiFgRx" to u.wifiFgRx, "wifiFgTx" to u.wifiFgTx, "wifiBgRx" to u.wifiBgRx, "wifiBgTx" to u.wifiBgTx,
-        "mobileFgRx" to u.mobileFgRx, "mobileFgTx" to u.mobileFgTx,
-        "mobileBgRx" to u.mobileBgRx, "mobileBgTx" to u.mobileBgTx,
-    )
+    /** Les [limit] apps qui ont le plus consommé sur la période (historique du système). */
+    fun query(startMs: Long, endMs: Long, limit: Int = 60): List<Map<String, Any?>> {
+        // Tranches entières : sinon Android ne compte qu'une fraction de la
+        // tranche en cours, et les derniers chiffres semblent manquer.
+        val all = counters(alignDown(startMs), alignUp(endMs))
+        return all.entries
+            .filter { it.value.sum() > 0 }
+            .sortedByDescending { it.value.sum() }
+            .take(limit)
+            .map { (uid, c) -> describe(uid, withIcon = true) + usageMap(c) }
+    }
 
-    /** Nom, paquet et icône d'un uid (une app, ou un groupe système). */
-    private fun describe(uid: Int): Map<String, Any?> {
+    /**
+     * Instantané des compteurs cumulés depuis [windowStartMs], pour une
+     * différence plus tard ([delta]). Format JSON : { "uid": [8 nombres] }.
+     */
+    fun snapshot(windowStartMs: Long): JSONObject {
+        val out = JSONObject()
+        for ((uid, c) in counters(windowStartMs, System.currentTimeMillis() + 24 * 60 * 60 * 1000)) {
+            out.put(uid.toString(), JSONArray(c.toList()))
+        }
+        return out
+    }
+
+    /** Ce qui a circulé depuis l'instantané [base], app par app, du plus gros au plus petit. */
+    fun delta(base: JSONObject, windowStartMs: Long, withIcons: Boolean, limit: Int = 60): List<Map<String, Any?>> {
+        val now = counters(windowStartMs, System.currentTimeMillis() + 24 * 60 * 60 * 1000)
+        val rows = mutableListOf<Pair<Int, LongArray>>()
+        for ((uid, c) in now) {
+            val before = base.optJSONArray(uid.toString())
+            val d = LongArray(8) { i -> (c[i] - (before?.optLong(i) ?: 0L)).coerceAtLeast(0) }
+            if (d.sum() > 0) rows.add(uid to d)
+        }
+        return rows.sortedByDescending { it.second.sum() }
+            .take(limit)
+            .map { (uid, d) -> describe(uid, withIcon = withIcons) + usageMap(d) }
+    }
+
+    private fun usageMap(c: LongArray): Map<String, Any?> = FIELDS.withIndex().associate { (i, f) -> f to c[i] }
+
+    /** Nom, paquet (et icône) d'un uid : une app, ou un groupe du système. */
+    fun describe(uid: Int, withIcon: Boolean): Map<String, Any?> {
         val special = when (uid) {
             NetworkStats.Bucket.UID_REMOVED -> "Apps désinstallées"
             NetworkStats.Bucket.UID_TETHERING -> "Partage de connexion"
@@ -102,22 +143,33 @@ class AppUsageReader(private val context: Context) {
             ?: return mapOf("uid" to uid, "name" to "Système (uid $uid)", "system" to true)
         return try {
             val info = packages.getApplicationInfo(pkg, 0)
-            val system = (info.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM) != 0 &&
+            val system = (info.flags and ApplicationInfo.FLAG_SYSTEM) != 0 &&
                 packages.getLaunchIntentForPackage(pkg) == null
             val label = info.loadLabel(packages).toString()
-            mapOf(
+            val map = mutableMapOf<String, Any?>(
                 "uid" to uid,
                 "name" to if (names.size > 1) "$label (+${names.size - 1})" else label,
                 "package" to pkg,
                 "system" to system,
-                "icon" to iconPng(info.loadIcon(packages)),
             )
+            if (withIcon) map["icon"] = iconPng(info.loadIcon(packages))
+            map
         } catch (_: PackageManager.NameNotFoundException) {
             mapOf("uid" to uid, "name" to pkg, "package" to pkg, "system" to true)
         }
     }
 
-    private fun iconPng(drawable: android.graphics.drawable.Drawable): ByteArray? = try {
+    /** Icônes de plusieurs apps, par uid (pour un résumé gardé sans icônes). */
+    fun icons(uids: List<Int>): Map<String, ByteArray> {
+        val out = mutableMapOf<String, ByteArray>()
+        for (uid in uids) {
+            val icon = describe(uid, withIcon = true)["icon"] as? ByteArray ?: continue
+            out[uid.toString()] = icon
+        }
+        return out
+    }
+
+    private fun iconPng(drawable: Drawable): ByteArray? = try {
         val size = 96
         val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
         drawable.setBounds(0, 0, size, size)

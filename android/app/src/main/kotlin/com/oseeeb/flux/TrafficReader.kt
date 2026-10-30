@@ -30,12 +30,14 @@ class TrafficReader(private val context: Context) {
         var mobileUp = false
         var usbUp = false
         var btNetworkUp = false
+        var vpnUp = false
 
         // Réseaux que le téléphone utilise (en amont).
         @Suppress("DEPRECATION")
         for (network in connectivity?.allNetworks.orEmpty()) {
             val caps = connectivity?.getNetworkCapabilities(network) ?: continue
             val iface = connectivity.getLinkProperties(network)?.interfaceName
+            if (caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) vpnUp = true
             when {
                 caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> {
                     wifiUp = true
@@ -71,11 +73,16 @@ class TrafficReader(private val context: Context) {
         val mobile = mobileCounters()
         val usb = sumInterfaces(usbIfaces)
         val bluetooth = sumInterfaces(btIfaces)
-        val wifi = sumInterfaces(wifiIfaces) ?: wifiByDifference(mobile, usb, bluetooth)
+        val wifiDirect = sumInterfaces(wifiIfaces)
+        val wifi = wifiDirect ?: wifiByDifference(mobile, usb, bluetooth)
         val btOn = bluetoothEnabled()
 
         return mapOf(
             "timestampMs" to SystemClock.elapsedRealtime(),
+            // Wi-Fi déduit du total : avec un VPN, le trafic passe deux fois
+            // (dans le tunnel, puis sur le Wi-Fi) et peut être compté deux fois.
+            "wifiEstimated" to (wifiDirect == null),
+            "vpn" to vpnUp,
             "channels" to mapOf(
                 "wifi" to channel(wifiUp, wifi, null),
                 "mobile" to channel(mobileUp, mobile, null),

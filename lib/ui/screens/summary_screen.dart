@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 
 import '../../app/scope.dart';
@@ -6,6 +8,7 @@ import '../../traffic/capture_session.dart';
 import '../../traffic/channel.dart';
 import '../format.dart';
 import '../widgets/common.dart';
+import 'apps_screen.dart';
 
 /// Résumé d'une capture : à la fin d'une session, ou rouvert depuis
 /// l'historique ([fromHistory]).
@@ -142,6 +145,7 @@ class SummaryScreen extends StatelessWidget {
                       ),
                     ],
                   ),
+                  if (summary.apps.isNotEmpty) ...[const SizedBox(height: 12), _AppsCard(summary: summary)],
                   if (!fromHistory) ...[const SizedBox(height: 20), const _PrivacyNotice()],
                 ],
               ),
@@ -164,6 +168,105 @@ class SummaryScreen extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Les apps qui ont le plus consommé pendant la capture.
+class _AppsCard extends StatefulWidget {
+  const _AppsCard({required this.summary});
+
+  final SessionSummary summary;
+
+  @override
+  State<_AppsCard> createState() => _AppsCardState();
+}
+
+class _AppsCardState extends State<_AppsCard> {
+  Map<int, Uint8List> _icons = const {};
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadIcons());
+  }
+
+  Future<void> _loadIcons() async {
+    final top = widget.summary.apps.take(5);
+    final icons = await FluxScope.of(context).apps.icons([for (final a in top) a.uid]);
+    if (mounted) setState(() => _icons = icons);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    final apps = widget.summary.apps.where((a) => !a.system).toList();
+    final shown = (apps.isEmpty ? widget.summary.apps : apps).take(5).toList();
+    final total = widget.summary.apps.fold(0, (s, a) => s + a.total);
+    return FluxCard(
+      radius: 22,
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text('Par app', style: fluxText(15, weight: 700, color: p.text)),
+              ),
+              Text(formatVolume(total).toString(), style: fluxText(13, weight: 600, color: p.muted)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          for (final a in shown) ...[
+            Row(
+              children: [
+                AppIcon(a.withIcon(_icons[a.uid]), size: 28),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              a.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: fluxText(13, weight: 700, color: p.text),
+                            ),
+                          ),
+                          Text(formatShare(a.total, total), style: fluxText(12, weight: 700, color: p.muted)),
+                          const SizedBox(width: 8),
+                          Text(formatVolume(a.total).toString(), style: fluxText(13, weight: 700, color: p.text)),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      LevelBar(
+                        fraction: shown.first.total == 0 ? 0 : a.total / shown.first.total,
+                        color: p.of(Channel.wifi).bar,
+                        height: 4,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+          ],
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: () =>
+                  Navigator.of(context)
+                      .push(MaterialPageRoute<void>(builder: (_) => AppsScreen(summary: widget.summary))),
+              style: TextButton.styleFrom(foregroundColor: p.accentText, minimumSize: const Size(44, 44)),
+              child: Text('Voir toutes les apps', style: fluxText(13, weight: 700)),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -58,6 +58,7 @@ class CaptureService : Service() {
 
     private val handler = Handler(Looper.getMainLooper())
     private lateinit var reader: TrafficReader
+    private lateinit var apps: AppUsageReader
     private var wakeLock: PowerManager.WakeLock? = null
     private var looping = false
 
@@ -81,6 +82,7 @@ class CaptureService : Service() {
     override fun onCreate() {
         super.onCreate()
         reader = TrafficReader(applicationContext)
+        apps = AppUsageReader(applicationContext)
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -124,7 +126,7 @@ class CaptureService : Service() {
     }
 
     private fun finishCapture() {
-        CaptureState.finish(this, reader)
+        CaptureState.finish(this, reader, apps)
         handler.removeCallbacks(tick)
         looping = false
         onStopped?.invoke()

@@ -31,6 +31,7 @@ class MainActivity : FlutterActivity() {
                     CaptureState.begin(
                         applicationContext,
                         reader,
+                        apps,
                         call.argument<String>("unit") ?: "auto",
                         (call.argument<Number>("autoStopSec") ?: 0).toLong(),
                     )
@@ -44,8 +45,26 @@ class MainActivity : FlutterActivity() {
                     if (state != null) CaptureService.start(applicationContext)
                     result.success(state)
                 }
+                "captureApps" -> {
+                    // Part de chaque app depuis GO (ou depuis l'autorisation, si elle est venue après).
+                    Thread {
+                        val data = runCatching { CaptureState.apps(applicationContext, apps) }
+                        runOnUiThread {
+                            data.fold({ result.success(it) }, { result.error("capture_apps_failed", it.message, null) })
+                        }
+                    }.start()
+                }
+                "appIcons" -> {
+                    val uids = call.argument<List<Int>>("uids").orEmpty()
+                    Thread {
+                        val data = runCatching { apps.icons(uids) }
+                        runOnUiThread {
+                            data.fold({ result.success(it) }, { result.error("icons_failed", it.message, null) })
+                        }
+                    }.start()
+                }
                 "captureStop" -> {
-                    val summary = CaptureState.finish(applicationContext, reader)
+                    val summary = CaptureState.finish(applicationContext, reader, apps)
                     CaptureService.stop(applicationContext)
                     result.success(summary)
                 }

@@ -2,6 +2,7 @@ import 'package:clock/clock.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flux/app/settings.dart';
+import 'package:flux/apps/app_usage.dart';
 import 'package:flux/history/history_store.dart';
 import 'package:flux/main.dart';
 import 'package:flux/traffic/capture_session.dart';
@@ -50,9 +51,23 @@ void main() {
       expect(store.entries.last.startedAt, start.add(const Duration(hours: 20)), reason: 'les plus anciennes partent');
     });
 
-    test('un résumé se relit à l’identique', () {
-      final s = summaryAt(DateTime(2026, 10, 29, 14, 5));
+    test('un résumé se relit à l’identique, part par app comprise', () {
+      final base = summaryAt(DateTime(2026, 10, 29, 14, 5));
+      final s = SessionSummary(
+        startedAt: base.startedAt,
+        duration: base.duration,
+        rxBytes: base.rxBytes,
+        txBytes: base.txBytes,
+        apps: const [
+          AppUsage(uid: 7, name: 'Vidéos', packageName: 'com.exemple.videos', wifiForeground: 5, mobileBackground: 3),
+        ],
+        appsSince: base.startedAt,
+      );
       final back = SessionSummary.fromJson(s.toJson());
+      expect(back.apps.single.name, 'Vidéos');
+      expect(back.apps.single.packageName, 'com.exemple.videos');
+      expect(back.apps.single.total, 8);
+      expect(back.appsSince, s.appsSince);
       expect(back.startedAt, s.startedAt);
       expect(back.duration, s.duration);
       expect(back.rxBytes, s.rxBytes);

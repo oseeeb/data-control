@@ -61,7 +61,7 @@ object CaptureState {
 
     /** GO : nouvelle capture. [autoStopSec] = 0 pour jamais. */
     @Synchronized
-    fun begin(context: Context, reader: TrafficReader, unit: String, autoStopSec: Long) {
+    fun begin(context: Context, reader: TrafficReader, apps: AppUsageReader, unit: String, autoStopSec: Long) {
         val counters = readCounters(reader)
         state = JSONObject()
             .put("startedAt", System.currentTimeMillis())
@@ -74,7 +74,40 @@ object CaptureState {
             .put("lastPoll", SystemClock.elapsedRealtime())
         rxPerSec = 0.0
         txPerSec = 0.0
+        takeAppsBase(apps)
         save(context, force = true)
+    }
+
+    /**
+     * Instantané des compteurs par app, point de départ de la part de chaque
+     * app. Pris à GO si l'accès « Données d'utilisation » est accordé, sinon
+     * dès qu'il l'est ([apps]) : la part est alors comptée depuis ce moment.
+     */
+    private fun takeAppsBase(apps: AppUsageReader) {
+        val s = state ?: return
+        if (s.has("appsBase") || !apps.hasAccess()) return
+        val now = System.currentTimeMillis()
+        // Fenêtre fixe, large : la même à chaque lecture, pour que la
+        // différence ne reflète que ce qui est arrivé entre-temps.
+        val windowStart = AppUsageReader.alignDown(now) - 24L * 60 * 60 * 1000
+        s.put("appsWindowStart", windowStart)
+            .put("appsSince", now)
+            .put("appsBase", apps.snapshot(windowStart))
+    }
+
+    /**
+     * Part de chaque app depuis GO (ou depuis l'autorisation). `null` sans
+     * capture en cours ; liste vide si l'accès n'est pas accordé.
+     */
+    @Synchronized
+    fun apps(context: Context, apps: AppUsageReader): Map<String, Any?>? {
+        val s = load(context) ?: return null
+        takeAppsBase(apps)
+        val base = s.optJSONObject("appsBase") ?: return mapOf("apps" to emptyList<Any>())
+        return mapOf(
+            "sinceMs" to s.getLong("appsSince"),
+            "apps" to apps.delta(base, s.getLong("appsWindowStart"), withIcons = true),
+        )
     }
 
     /**
@@ -128,11 +161,18 @@ object CaptureState {
 
     /** STOP : termine la capture, la range parmi les captures terminées et la renvoie. */
     @Synchronized
-    fun finish(context: Context, reader: TrafficReader): Map<String, Any>? {
+    fun finish(context: Context, reader: TrafficReader, apps: AppUsageReader): Map<String, Any>? {
         if (load(context) == null) return null
         poll(context, reader)
         val s = state ?: return null
-        val result = summary(s, ended = true)
+        val result = summary(s, ended = true).toMutableMap()
+        // Part de chaque app, gardée sans icônes (elles se retrouvent par l'uid).
+        val base = s.optJSONObject("appsBase")
+        if (base != null) {
+            result["appsSinceMs"] = s.getLong("appsSince")
+            result["apps"] = runCatching { apps.delta(base, s.getLong("appsWindowStart"), withIcons = false, limit = 40) }
+                .getOrDefault(emptyList())
+        }
         val finished = runCatching { JSONArray(prefs(context).getString(KEY_FINISHED, "[]")) }.getOrDefault(JSONArray())
         finished.put(JSONObject(result))
         state = null
@@ -187,13 +227,15 @@ object CaptureState {
     private fun toMap(o: JSONObject): Map<String, Any> {
         val map = mutableMapOf<String, Any>()
         for (key in o.keys()) {
-            val v = o.get(key)
-            map[key] = when (v) {
-                is JSONObject -> toMap(v)
-                is Int -> v.toLong()
-                else -> v
-            }
+            map[key] = fromJson(o.get(key))
         }
         return map
+    }
+
+    private fun fromJson(v: Any): Any = when (v) {
+        is JSONObject -> toMap(v)
+        is JSONArray -> (0 until v.length()).map { fromJson(v.get(it)) }
+        is Int -> v.toLong()
+        else -> v
     }
 }

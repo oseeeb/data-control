@@ -44,7 +44,13 @@ class ChannelReading {
 
 /// Une lecture de tous les canaux à la fois.
 class TrafficSnapshot {
-  const TrafficSnapshot({required this.timestampMs, required this.channels, this.counterBits});
+  const TrafficSnapshot({
+    required this.timestampMs,
+    required this.channels,
+    this.counterBits,
+    this.vpn = false,
+    this.wifiEstimated = false,
+  });
 
   /// Horloge monotone du téléphone, en millisecondes.
   final int timestampMs;
@@ -52,6 +58,13 @@ class TrafficSnapshot {
 
   /// Largeur des compteurs quand ils bouclent (32 sur iOS), sinon `null`.
   final int? counterBits;
+
+  /// Un VPN est actif : son trafic passe deux fois (tunnel, puis Wi-Fi ou
+  /// mobile) et peut être compté deux fois quand le Wi-Fi est estimé.
+  final bool vpn;
+
+  /// Le Wi-Fi n'est pas lu directement mais déduit (total − autres canaux).
+  final bool wifiEstimated;
 
   ChannelReading operator [](Channel c) => channels[c] ?? ChannelReading.unavailable;
 
@@ -68,6 +81,8 @@ class TrafficSnapshot {
       timestampMs: map['timestampMs'] as int,
       channels: channels,
       counterBits: map['counterBits'] as int?,
+      vpn: map['vpn'] == true,
+      wifiEstimated: map['wifiEstimated'] == true,
     );
   }
 }

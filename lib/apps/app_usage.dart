@@ -33,6 +33,43 @@ class AppUsage {
   int get background => wifiBackground + mobileBackground;
   int get foreground => wifiForeground + mobileForeground;
   int get total => background + foreground;
+  int get wifi => wifiForeground + wifiBackground;
+  int get mobile => mobileForeground + mobileBackground;
+
+  AppUsage withIcon(Uint8List? icon) => AppUsage(
+    uid: uid,
+    name: name,
+    packageName: packageName,
+    icon: icon ?? this.icon,
+    system: system,
+    wifiForeground: wifiForeground,
+    wifiBackground: wifiBackground,
+    mobileForeground: mobileForeground,
+    mobileBackground: mobileBackground,
+  );
+
+  /// Sans icône : pour l'historique.
+  Map<String, Object?> toJson() => {
+    'uid': uid,
+    'name': name,
+    if (packageName != null) 'package': packageName,
+    if (system) 'system': true,
+    'wifiFg': wifiForeground,
+    'wifiBg': wifiBackground,
+    'mobileFg': mobileForeground,
+    'mobileBg': mobileBackground,
+  };
+
+  static AppUsage fromJson(Map<String, Object?> m) => AppUsage(
+    uid: m['uid'] as int,
+    name: m['name'] as String,
+    packageName: m['package'] as String?,
+    system: m['system'] == true,
+    wifiForeground: (m['wifiFg'] as int?) ?? 0,
+    wifiBackground: (m['wifiBg'] as int?) ?? 0,
+    mobileForeground: (m['mobileFg'] as int?) ?? 0,
+    mobileBackground: (m['mobileBg'] as int?) ?? 0,
+  );
 
   factory AppUsage.fromMap(Map<Object?, Object?> m) {
     int n(String k) => (m[k] as int?) ?? 0;
@@ -64,6 +101,9 @@ abstract class AppUsageSource {
 
   /// Ouvre la page de l'app dans les réglages (pour limiter ses données en arrière-plan).
   Future<void> openAppDetails(String packageName);
+
+  /// Icônes des apps, par uid (pour un résumé gardé sans icônes).
+  Future<Map<int, Uint8List>> icons(List<int> uids);
 }
 
 class PlatformAppUsageSource implements AppUsageSource {
@@ -97,4 +137,18 @@ class PlatformAppUsageSource implements AppUsageSource {
   @override
   Future<void> openAppDetails(String packageName) =>
       _channel.invokeMethod<void>('openAppDetails', {'package': packageName});
+
+  @override
+  Future<Map<int, Uint8List>> icons(List<int> uids) async {
+    if (!supported || uids.isEmpty) return const {};
+    try {
+      final raw = await _channel.invokeMapMethod<Object?, Object?>('appIcons', {'uids': uids});
+      return {
+        for (final e in (raw ?? const {}).entries)
+          if (e.value is Uint8List) int.parse(e.key as String): e.value as Uint8List,
+      };
+    } on PlatformException {
+      return const {};
+    }
+  }
 }

@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../app/settings.dart';
+import '../apps/app_usage.dart';
 import 'capture_session.dart';
 import 'channel.dart';
 import 'rate_meter.dart';
@@ -35,6 +36,10 @@ abstract class CaptureHost {
   /// que [stop] vient de terminer.
   Future<List<SessionSummary>> takeFinished();
 
+  /// Part de chaque app depuis GO, pendant la capture. `null` quand le
+  /// téléphone ne le permet pas (iPhone) ou sans capture en cours.
+  Future<AppBreakdown?> captureApps() async => null;
+
   /// `true` si l'économie de batterie du téléphone peut fermer Flux.
   Future<bool> backgroundRestricted() async => false;
 
@@ -61,6 +66,19 @@ class NoopCaptureHost extends CaptureHost {
   Future<List<SessionSummary>> takeFinished() async => const [];
 }
 
+/// Part de chaque app pendant une capture, à un instant donné.
+class AppBreakdown {
+  const AppBreakdown({required this.apps, this.since});
+
+  /// Du plus gros au plus petit. Vide si l'accès « Données d'utilisation » manque.
+  final List<AppUsage> apps;
+  final DateTime? since;
+}
+
+List<AppUsage> _appsFromList(Object? raw) => [
+  for (final m in (raw as List?) ?? const []) AppUsage.fromMap(m as Map<Object?, Object?>),
+];
+
 SessionSummary? _summaryFromMap(Object? raw) {
   if (raw is! Map) return null;
   Map<Channel, int> bytes(Object? m) => {
@@ -72,6 +90,8 @@ SessionSummary? _summaryFromMap(Object? raw) {
     duration: Duration(seconds: raw['durationSec'] as int),
     rxBytes: bytes(raw['rx']),
     txBytes: bytes(raw['tx']),
+    apps: _appsFromList(raw['apps']),
+    appsSince: raw['appsSinceMs'] is int ? DateTime.fromMillisecondsSinceEpoch(raw['appsSinceMs'] as int) : null,
   );
 }
 
@@ -103,6 +123,16 @@ class AndroidCaptureHost extends CaptureHost {
   Future<List<SessionSummary>> takeFinished() async {
     final raw = await _call('takeFinished');
     return [for (final m in (raw as List?) ?? const []) ?_summaryFromMap(m)];
+  }
+
+  @override
+  Future<AppBreakdown?> captureApps() async {
+    final raw = await _call('captureApps');
+    if (raw is! Map) return null;
+    return AppBreakdown(
+      apps: _appsFromList(raw['apps']),
+      since: raw['sinceMs'] is int ? DateTime.fromMillisecondsSinceEpoch(raw['sinceMs'] as int) : null,
+    );
   }
 
   @override

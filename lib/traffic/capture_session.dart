@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../apps/app_usage.dart';
 import 'channel.dart';
 import 'rate_meter.dart';
 import 'snapshot.dart';
@@ -11,10 +12,25 @@ import 'traffic_source.dart';
 /// volumes par canal. Jamais le contenu du trafic. Vit en mémoire le temps de
 /// l'écran de fin, et dans l'historique seulement si l'utilisateur l'a activé.
 class SessionSummary {
-  const SessionSummary({required this.startedAt, required this.duration, required this.rxBytes, required this.txBytes});
+  const SessionSummary({
+    required this.startedAt,
+    required this.duration,
+    required this.rxBytes,
+    required this.txBytes,
+    this.apps = const [],
+    this.appsSince,
+  });
 
   final DateTime startedAt;
   final Duration duration;
+
+  /// Part de chaque app (Android, avec l'accès « Données d'utilisation »),
+  /// du plus gros au plus petit. Vide si l'accès manquait.
+  final List<AppUsage> apps;
+
+  /// Moment à partir duquel la part par app est comptée (GO, ou plus tard
+  /// si l'accès a été accordé pendant la capture).
+  final DateTime? appsSince;
   final Map<Channel, int> rxBytes;
   final Map<Channel, int> txBytes;
 
@@ -28,6 +44,8 @@ class SessionSummary {
     'durationSec': duration.inSeconds,
     'rx': {for (final e in rxBytes.entries) e.key.key: e.value},
     'tx': {for (final e in txBytes.entries) e.key.key: e.value},
+    if (apps.isNotEmpty) 'apps': [for (final a in apps) a.toJson()],
+    if (appsSince != null) 'appsSince': appsSince!.toUtc().toIso8601String(),
   };
 
   static SessionSummary fromJson(Map<String, Object?> json) {
@@ -41,6 +59,10 @@ class SessionSummary {
       duration: Duration(seconds: json['durationSec'] as int),
       rxBytes: bytes(json['rx']),
       txBytes: bytes(json['tx']),
+      apps: [
+        for (final a in (json['apps'] as List?) ?? const []) AppUsage.fromJson((a as Map).cast<String, Object?>()),
+      ],
+      appsSince: json['appsSince'] is String ? DateTime.parse(json['appsSince'] as String).toLocal() : null,
     );
   }
 }
@@ -87,6 +109,7 @@ class CaptureSession extends ChangeNotifier {
   final Map<Channel, double> _rxPeak = {};
 
   bool get running => _running;
+  DateTime? get startedAt => _running ? _startedAt : null;
   Duration get elapsed => _clock == null ? Duration.zero : _elapsedOffset + _clock!.elapsed;
   TrafficSnapshot? get latest => _latest;
 

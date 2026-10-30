@@ -108,6 +108,14 @@ class _LiveScreenState extends State<LiveScreen> {
                           style: fluxText(12, color: p.muted, height: 1.4),
                         ),
                       ],
+                      if (s.latest?.vpn == true && s.latest?.wifiEstimated == true) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          'VPN actif : le Wi-Fi est déduit du total, et le trafic du VPN peut être compté deux fois '
+                          '(dans le tunnel, puis sur le réseau).',
+                          style: fluxText(12, color: p.of(Channel.mobile).text, height: 1.4),
+                        ),
+                      ],
                       const BackgroundHint(),
                       const SizedBox(height: 18),
                       FluxCard(

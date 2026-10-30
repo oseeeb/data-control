@@ -153,10 +153,12 @@ class HomeScreen extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Apps en arrière-plan', style: fluxText(15, weight: 700, color: p.text)),
+                            Text('Quelles apps consomment ?', style: fluxText(15, weight: 700, color: p.text)),
                             const SizedBox(height: 2),
                             Text(
-                              'Lesquelles consomment quand vous ne les utilisez pas ?',
+                              running
+                                  ? 'La part de chaque app depuis GO, en direct.'
+                                  : 'Pendant une capture, ou d’après l’historique du téléphone.',
                               style: fluxText(12, color: p.muted),
                             ),
                           ],
